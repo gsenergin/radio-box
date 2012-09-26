@@ -1,0 +1,503 @@
+
+#include <SPI.h>
+#include <WiflySerial.h>
+#include <Wifly.h>
+
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+// set the LCD address to 0x27 for a 20 chars and 4 line display
+LiquidCrystal_I2C lcd(0x27,20,4);
+#define LCD_EMPTY_LINE "                    "
+//pause char
+//uint8_t pause[8]  = {0x0,0x0,0xA,0xA,0xA,0xA,0x0,0x0};
+uint8_t pause[8]  = {0x0,0x1b,0x1b,0x1b,0x1b,0x1b,0x1b,0x0};
+int pause_char = 0;
+//play char
+uint8_t play[8]  = {0x0,0x8,0xc,0xe,0xf,0xe,0xc,0x8};
+int play_char = 1;
+//select char
+//uint8_t select[8]  = {0x0,0x10,0x18,0xf,0xf,0x18,0x10,0x0};
+uint8_t select[8]  = {0x0,0x00,0x18,0x1e,0x1e,0x18,0x00,0x0};
+int select_char = 2;
+
+//"ip port"
+//#define server_addr "192.168.1.107 50456"
+//#define server_addr "192.168.1.51 50456"
+//useless coz it's specified in Wifly directly
+
+//volt meter pwm output
+#define volt_m_pin 6
+//rotary encoder input
+#define rotary_enc_A_pin 3
+#define rotary_enc_B_pin 2
+int A, B;
+
+#define right_switch_pin 5
+int right_switch;
+#define left_switch_pin 7
+int left_switch;
+enum mode{
+  RADIO_MODE,
+  PODCAST_MODE,
+  FILES_MODE,
+  ALARM_MODE
+};
+
+#define yellow_button_pin 9
+int yellow_button;
+#define black_button_pin 8
+int black_button;
+
+unsigned int scroll_pos;
+unsigned int scroll_max;
+short int select_ind;
+short int select_ind_last;
+boolean browser_mode = false;
+short int path_mem[10];
+unsigned char path_mem_ind = 0;
+
+/**
+receive a message from server
+@return the number of message processed
+*/
+int receive_messages(){  
+  //receive msg from server
+  String msg = Wifly::readline();
+  int n = 0;
+  while (msg.length() != 0){
+    //lcd.setCursor(0, 0);
+    //lcd.print("z");
+    //delay(5000);
+    n ++;
+    //process message
+    int ind = msg.indexOf(":");
+    String cmd = msg.substring(0, ind);
+    String data = msg.substring(ind + 1);
+
+    //debug
+    /*lcd.setCursor(0, 2);
+    lcd.print(LCD_EMPTY_LINE);
+    lcd.setCursor(0, 2);
+    lcd.print(cmd);
+    lcd.setCursor(0, 3);
+    lcd.print(LCD_EMPTY_LINE);
+    lcd.setCursor(0, 3);
+    lcd.print(data);
+    delay(3000);*/
+    //lcd.setCursor(5, 0);
+    //lcd.print("ww");
+    //delay(5000);
+     
+    if (cmd.equals("radio_name")){
+      int l = data.length();
+      l = (20 - l) / 2;
+      //empty line
+      lcd.setCursor(0, 0);
+      lcd.print(LCD_EMPTY_LINE);
+      lcd.setCursor(0, 1);
+      lcd.print(LCD_EMPTY_LINE);
+      //write radio name to screen
+      lcd.setCursor(l, 1);
+      lcd.print(data);
+      //empty two last lines (if titles from previous station are displayed)
+      lcd.setCursor(0, 2);
+      lcd.print(LCD_EMPTY_LINE);
+      lcd.setCursor(0, 3);
+      lcd.print(LCD_EMPTY_LINE);
+      //lcd.setCursor(5, 0);
+      //lcd.print("qq");
+      //delay(5000);
+    }else if (cmd.equals("scroll_position")){
+      int ind = data.indexOf("/");
+      char buff[5];
+      //position
+      String s = data.substring(0, ind);
+      s.toCharArray(buff, 5);
+      scroll_pos = atoi(buff);
+      //number of stations
+      s = data.substring(ind + 1);
+      s.toCharArray(buff, 5);
+      scroll_max = atoi(buff);
+      //set volt meter
+      analogWrite(volt_m_pin, scroll_pos*255/(scroll_max));
+      //lcd.setCursor(5, 0);
+      //lcd.print("ggg");
+      //delay(5000);
+    }else if (cmd.equals("radio_title")){
+      //empty two last lines
+      lcd.setCursor(0, 2);
+      lcd.print(LCD_EMPTY_LINE);
+      lcd.setCursor(0, 3);
+      lcd.print(LCD_EMPTY_LINE);
+      lcd.setCursor(0, 2);
+      for (int i=0; i<data.length(); i++){
+        if (i == 20){
+          //go to next line
+          lcd.setCursor(0, 3);
+        }else if (i >= 40){
+          //truncate the end if it is too long
+          break;
+        }
+        lcd.write(data.charAt(i));
+      }
+      //lcd.setCursor(5, 0);
+      //lcd.print("kkkk");
+      //delay(5000);
+    }else if (cmd.equals("channel_name")){
+    //}else if (cmd.equals("channel_date")){
+      lcd.setCursor(0, 0);
+      lcd.print(LCD_EMPTY_LINE);
+      lcd.setCursor(0, 1);
+      lcd.print(LCD_EMPTY_LINE);
+      lcd.setCursor(0, 2);
+      lcd.print(LCD_EMPTY_LINE);
+      lcd.setCursor(0, 0);
+      int y = 0;
+      for (int i=0; i<data.length(); i++){
+        if (i == 20 || i == 40){
+          //go to next line
+           y++;
+          lcd.setCursor(0, y);
+        }else if (i >= 60){
+          //truncate the end if it is too long
+          break;
+        }
+        lcd.write(data.charAt(i));
+      }
+      //lcd.setCursor(5, 0);
+      //lcd.print("mm");
+      //delay(5000);
+    }else if (cmd.equals("channel_date")){
+      lcd.setCursor(0, 3);
+      lcd.print("    ");
+      lcd.print(data);
+      //lcd.setCursor(5, 0);
+      //lcd.print("ppp");
+      //delay(5000);
+    }else if (cmd.equals("episode_name")){
+      lcd.setCursor(0, 1);
+      lcd.print(LCD_EMPTY_LINE);
+      lcd.setCursor(0, 2);
+      lcd.print(LCD_EMPTY_LINE);
+      lcd.setCursor(0, 3);
+      lcd.print(LCD_EMPTY_LINE);
+      lcd.setCursor(0, 1);
+      int y = 1;
+      for (int i=0; i<data.length(); i++){
+        if (i%20 == 0 && i!=0){
+          //go to next line
+          y++;
+          lcd.setCursor(0, y);
+        }else if (i >= 60){
+          //truncate the end if it is too long
+          break;
+        }
+        lcd.write(data.charAt(i));
+      }
+      //lcd.setCursor(5, 0);
+      //lcd.print("uu");
+      //delay(5000);
+    }else if (cmd.equals("episode_date")){
+      lcd.setCursor(0, 0);
+      lcd.print(data);
+      lcd.print("    ");
+      //lcd.setCursor(5, 0);
+      //lcd.print("nn");
+      //delay(5000);
+    }else if (cmd.equals("line")){
+      ind = data.indexOf(":");
+      char tmp[20];
+      data.substring(0, ind).toCharArray(tmp, 19);
+      int y = atoi(tmp);
+      data = data.substring(ind + 1);
+      lcd.setCursor(1, y);
+      lcd.print(data);
+      int cpt = data.length();
+      while (cpt < 19){
+        lcd.print(" ");
+        cpt++;
+      }
+      /*if(!data.equals("                   ")){
+        select_ind = y;
+      }*/
+    }else if(cmd.equals("cursor")){
+      if (data.equals("next")){
+        select_ind ++;
+      }else{
+        select_ind --;
+      }
+    }
+    msg = Wifly::readline();
+    //lcd.setCursor(0, 0);
+    //lcd.print("a");
+    //delay(5000);
+  }
+  //lcd.setCursor(0, 5);
+  //lcd.print("bbb");
+  //delay(5000);
+  return n;
+}
+
+/** Starts the radio */
+void start_radio(){
+  //start radio playback, process the 2 replies
+  Wifly::write("radio\n");
+  int c = receive_messages();
+  while (c < 2){
+     c += receive_messages();
+  }
+}
+
+/** Starts the podcast */
+void start_podcast(){
+  //put loading msg
+  lcd.setCursor(0, 0);
+  lcd.print(LCD_EMPTY_LINE);
+  lcd.setCursor(0, 1);
+  lcd.print("      Podcast       ");
+  lcd.setCursor(0, 2);
+  lcd.print(LCD_EMPTY_LINE);
+  lcd.setCursor(0, 3);
+  lcd.print("          loading...");
+  //stop the radio
+  Wifly::write("podcast\n");
+  //process reply (3)
+  int c = receive_messages();
+  while (c < 3){
+     c += receive_messages();
+  }
+}
+
+void start_browser(){
+  //put loading msg
+  lcd.setCursor(0, 0);
+  lcd.print(LCD_EMPTY_LINE);
+  lcd.setCursor(0, 1);
+  lcd.print("      Browser       ");
+  lcd.setCursor(0, 2);
+  lcd.print(LCD_EMPTY_LINE);
+  lcd.setCursor(0, 3);
+  lcd.print("          loading...");
+  Wifly::write("browser\n");
+  //process reply (2)
+  int c = receive_messages();
+  while (c < 2){
+     c += receive_messages();
+  }
+  select_ind = 3;
+  select_ind_last = -1;
+}
+
+String tmp;
+byte b;
+
+void setup() {
+  //LCD screen
+  lcd.init();
+  lcd.backlight();
+  lcd.createChar(pause_char, pause);
+  lcd.createChar(play_char, play);
+  lcd.createChar(select_char, select);
+
+  //Wifly
+  Wifly::init();
+  //Wifly auto connect to server
+  //wait for TCP connection to be opened
+  while (1){
+    tmp = Wifly::readline();
+    if (tmp.startsWith("Listen on ")){
+      //wait for *OPEN* ack
+      tmp = "";
+      for (int i=0; i<6; i++){
+        while(!WiflySerial::read(b)){
+          delay(10);
+        }
+        tmp += b;
+      }
+      if (! tmp.equals("*OPEN*")){
+        lcd.setCursor(0, 0);
+        lcd.print("TCP Open Error !");
+        //lcd.print(pause_char,BYTE);
+        //lcd.print(play_char,BYTE);
+        //block here
+        while(1){
+          delay(1000);
+        }
+      }
+      break;
+    }
+  }
+
+  ////Volt Meter  
+  pinMode(volt_m_pin, OUTPUT);
+
+  ////rotary encoder
+  pinMode(rotary_enc_A_pin, INPUT);
+  pinMode(rotary_enc_B_pin, INPUT);
+  //set pull up resistor
+  digitalWrite(rotary_enc_A_pin, HIGH);
+  digitalWrite(rotary_enc_B_pin, HIGH);
+  A = digitalRead(rotary_enc_A_pin);
+  B = digitalRead(rotary_enc_B_pin);
+  
+  ////metal switch
+  //left switch
+  pinMode(left_switch_pin, INPUT);
+  digitalWrite(left_switch_pin, HIGH);
+  left_switch = digitalRead(left_switch_pin);
+  //right switch
+  pinMode(right_switch_pin, INPUT);
+  digitalWrite(right_switch_pin, HIGH);
+  right_switch = digitalRead(right_switch_pin);
+  
+  ////buttons
+  //yellow
+  pinMode(yellow_button_pin, INPUT);
+  digitalWrite(yellow_button_pin, HIGH);
+  yellow_button = digitalRead(yellow_button_pin);
+  //black
+  pinMode(black_button_pin, INPUT);
+  digitalWrite(black_button_pin, HIGH);
+  black_button = digitalRead(black_button_pin);
+  
+  process_switches(true);
+}
+
+void process_switches(bool is_init){
+  int tmpL = digitalRead(left_switch_pin);
+  int tmpR = digitalRead(right_switch_pin);
+  if (tmpL != left_switch || tmpR != right_switch || is_init){
+    //change occured
+    left_switch = tmpL;
+    right_switch = tmpR;
+    if (left_switch == HIGH){
+      if (right_switch == HIGH){
+        start_radio();
+        browser_mode = false;
+      }else{
+        start_podcast();
+        browser_mode = false;
+      }
+    }else{
+      if (right_switch == HIGH){
+        start_browser();
+        browser_mode = true;
+      }else{
+        browser_mode = false;
+      }
+    }
+  }
+}
+
+void process_rotary_enc(){
+  int tmpA = digitalRead(rotary_enc_A_pin);
+  int tmpB = digitalRead(rotary_enc_B_pin);
+  if ((A==B && tmpB!=B) || (A!=B && tmpA!=A)){
+    //turn left
+    if (browser_mode){
+      select_ind --;
+      if (select_ind < 0){
+        select_ind = 0;
+        Wifly::write("prev\n");
+      }
+    }else{
+      Wifly::write("prev\n");
+    }
+  }else if ((A==B && tmpA!=A) || (A!=B && tmpB!=B)){
+    //turn right
+    if (browser_mode){
+      select_ind ++;
+      if (select_ind > 3){
+        select_ind = 3;
+        Wifly::write("next\n");
+      }
+    }else{
+      Wifly::write("next\n");
+    }
+  }
+  B = tmpB;
+  A = tmpA;
+}
+
+void update_select_cursor(){
+  if ((select_ind != select_ind_last) && browser_mode){
+    lcd.setCursor(0, select_ind_last);
+    lcd.print(" ");
+    select_ind_last = select_ind;
+    lcd.setCursor(0, select_ind);
+    lcd.print(select_char,BYTE);
+  }
+}
+
+int x=0, y=0;
+int tmp_int;
+void loop() {
+  //read and process messages received from server
+  receive_messages();
+  //read rotary encoder
+  //process required changes
+  process_rotary_enc();
+  process_switches(false);
+  /*tmp_int = digitalRead(right_switch_pin);
+  if (tmp_int != right_switch){
+    right_switch = tmp_int;
+    if (left_switch == HIGH){
+      if (right_switch == HIGH){
+        start_radio();
+      }else{
+        start_podcast();
+      }
+    }else{
+      if (right_switch == HIGH){
+        start_browser();
+      }else{
+      }
+    }
+  }*/
+  
+  //read yellow button
+  tmp_int = digitalRead(yellow_button_pin);
+  boolean was_pressed = false;
+  while (tmp_int == LOW){
+     was_pressed = true;
+    delay(10);
+    tmp_int = digitalRead(yellow_button_pin);
+  }
+  if (was_pressed){
+    if (browser_mode){
+      Wifly::write("select:");
+      Wifly::write(String(select_ind));
+      Wifly::write("\n");
+    }else{
+      Wifly::write("select\n");
+    }
+  }
+  //read black button
+  tmp_int = digitalRead(black_button_pin);
+  was_pressed = false;
+  while (tmp_int == LOW){
+    was_pressed = true;
+    delay(10);
+    tmp_int = digitalRead(black_button_pin);
+  }
+  if (was_pressed){
+    Wifly::write("back\n");
+  }
+  
+  //update cursor
+  update_select_cursor();
+  
+#if 0
+  //read
+  while (WiflySerial::read(b)){
+    Serial.print(b, BYTE);
+  }
+  //write
+  if (Serial.available()){
+    WiflySerial::write(Serial.read());
+  }
+#endif
+}
+
+
