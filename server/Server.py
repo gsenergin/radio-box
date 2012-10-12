@@ -105,12 +105,6 @@ class RadioBoxServer:
 		self.title_monitor.update_name("")
 		self.streamHandler.updateAddr("")
 
-	def play_episode(self, episode):
-		'''self.podcast_manager.download(episode)
-		time.sleep(2.0);
-		self.streamHandler.updateAddr(episode.path())'''
-		self.streamHandler.updateAddr(episode.url)
-
 	def scroll_position_to_cmd(self, i, n):
 		#i/n
 		r = ["scroll_position:"]
@@ -217,7 +211,7 @@ class RadioBoxServer:
 				reply.extend(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode].to_cmd())
 				reply.extend(self.scroll_position_to_cmd(self.current_episode, len(self.podcast_manager.channels[self.current_channel].episodes)))
 			elif self.mode == "podcast.episode":
-				self.play_episode(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode])
+				self.streamHandler.play_episode(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode])
 				self.mode = "podcast.episode.playing"
 			elif self.mode == "podcast.episode.playing":
 				self.streamHandler.pause()

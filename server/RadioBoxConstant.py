@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 
-REC_FILE_NAME = "radio_record.ogg"
-REC_FILE_RATE = 128000
-VOLUME = 80
+BLOCK_SIZE = 4096
+REC_MAX_ELEMENT = 409600*6/BLOCK_SIZE#100000/BLOCK_SIZE
+REC_HEAD_MARGIN = 20
 
 HOST = '192.168.1.51'
 PORT = 50456
 BUFFER_SIZE = 4096
 TIMEOUT = 0.01
 
-HOME_DIR = "/home/bastien/Documents/radio-box/rewrite"
+HOME_DIR = "/home/bastien/Documents/radio-box/server"
 RADIO_STATION_LIST = HOME_DIR + "/live_radio.list"
 #PARSE_RSS_CMD = "xsltproc parse_title.xsl "
 XSLT_PARSE = HOME_DIR + "/parse_title.xsl"

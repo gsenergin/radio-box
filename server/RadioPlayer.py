@@ -1,6 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+'''
+Some Notes, to organize later
+_ GstBuffer.offset should be set to 0 to work-around some stupid assertion
+_ inPipeSink.emit('pull-buffer') is blocking. For non blocking behaviour, enable emit-signals, then connect to a handler
+'''
 import threading, time, string
 from Queue import Queue, Empty
 from RadioBoxConstant import *
@@ -37,6 +42,7 @@ class StreamElement():
 			self.prev.next = None
 		if self.next != None:
 			self.next.prev = None
+		print "delete element #", self.index
 
 class RadioPlayer(threading.Thread):
 	def __init__(self):
@@ -49,25 +55,23 @@ class RadioPlayer(threading.Thread):
 		self.T = None
 		self.cursor = None
 		self.cmdQ = Queue()
-		self.last_need_data_failed = False
 
 	def stop(self):
 		self.shouldRun = False
 
 	def feed_appsrc(self, a, b):
-		print "feed_appsrc"
 		if self.cursor != None and  self.cursor.next != None:
-			print "feeding"
+			#print "feeding"
 			self.outPipeSrc.emit('push-buffer', self.cursor.buff)
+			#print self.cursor.index
 			self.cursor = self.cursor.next
 		else:
-			self.last_need_data_failed = True
+			pass
+			#self.last_need_data_failed = True
 
-	def fetch_appsink(self, a):
-		print a
+	def fetch_appsink(self, sink):
 		t = time.time()
 		buff = self.inPipeSink.emit('pull-buffer')
-		print "pull-buffer : ", time.time() - t
 		#this is needed to workaround assertion which does not allow stream to start at offset 0
 		buff.offset = 0
 		e = self.H
@@ -80,40 +84,15 @@ class RadioPlayer(threading.Thread):
 	def run(self):
 		self.shouldRun = True
 		while self.shouldRun:
-			if self.inPipe != None:
-				#print "loop"
-				#t = time.time()
-				#buff = self.inPipeSink.emit('pull-buffer')
-				buff = None
-				#print "pull-buffer : ", time.time() - t
-				if buff:
-					#this is needed to workaround assertion which does not allow stream to start at offset 0
-					#print "got buff, recording"
-					buff.offset = 0
-					e = self.H
-					self.H = StreamElement(buff, e)
-					if e == None:
-						#it is the 1st buff
-						self.T = self.H
-						self.cursor = self.H
-					'''while StreamElement.count > (REC_MAX_SIZE/BLOCK_SIZE):
-							e = self.T
-							self.T = self.T.next
-							self.T.prev = None
-							e.delete()'''
-					#time.sleep(0.001)
-					#print "rec buffer #", StreamElement.count
-				else:
-					pass
-					#print "buff is None"
-					#time.sleep(2.01)
-			else:
-				print "no inPipe"
-				time.sleep(2.01)
+			#delete too old buff
+			if StreamElement.count > REC_MAX_ELEMENT:
+				e = self.T
+				self.T = self.T.next
+				e.delete()
 			#process commands
 			if not self.cmdQ.empty():
 				cmd = self.cmdQ.get_nowait()
-				print cmd
+				#print cmd
 				try:
 					i = cmd.index(":")
 					data = cmd[i+1:]
@@ -122,9 +101,14 @@ class RadioPlayer(threading.Thread):
 					pass
 				if cmd == "PLAY":
 					if self.inPipe != None:
+						if self.outPipe != None:
+							self.outPipe.set_state(gst.STATE_NULL)
 						self.outPipe = gst.parse_launch("appsrc name=\"appsrc\"  blocksize=\""+str(BLOCK_SIZE)+"\" ! decodebin ! pulsesink")
 						self.outPipeSrc = self.outPipe.get_by_name('appsrc')
 						self.outPipeSrc.connect('need-data', self.feed_appsrc)
+						#wait that enough data has been buffered
+						while self.cursor == None or self.H == None or self.cursor.index + REC_HEAD_MARGIN > self.H.index:
+							time.sleep(0.1)
 						self.outPipe.set_state(gst.STATE_PLAYING)
 				elif cmd == "PAUSE":
 					if self.outPipe != None:
@@ -133,14 +117,11 @@ class RadioPlayer(threading.Thread):
 					if self.outPipe != None:
 						self.outPipe.set_state(gst.STATE_NULL)
 					if self.inPipe != None:
-						#wait for a minimum number of streamElement
-						if streamElement.count < 40:
-							continue
-						#set cursor to Head - margin
+						#set cursor to Head
 						self.cursor = self.H
-						time.sleep(1.5)
-						#for j in range(40):
-						#	self.cursor = self.cursor.prev
+						#wait that enough data has been buffered
+						while self.cursor == None or self.H == None or self.cursor.index + REC_HEAD_MARGIN > self.H.index:
+							time.sleep(0.1)
 						self.outPipe = gst.parse_launch("appsrc name=\"appsrc\"  blocksize=\""+str(BLOCK_SIZE)+"\" ! decodebin ! pulsesink")
 						self.outPipeSrc = self.outPipe.get_by_name('appsrc')
 						self.outPipeSrc.connect('need-data', self.feed_appsrc)
@@ -158,12 +139,12 @@ class RadioPlayer(threading.Thread):
 						self.inPipeSink = self.inPipe.get_by_name('sink') 
 						self.inPipeSink.connect('new-buffer', self.fetch_appsink)
 						self.inPipe.set_state(gst.STATE_PLAYING)
-					print "URL update finish"
+					#print "URL update finish"
+				else:
+					time.sleep(0.1)
 		#stop
 		if self.inPipe != None:
 			self.inPipe.set_state(gst.STATE_NULL)
-		#stop
-		print "--------run end loop"
 		if self.outPipe != None:
 			self.outPipe.set_state(gst.STATE_NULL)
 
@@ -183,30 +164,28 @@ class RadioPlayer(threading.Thread):
 		self.cmdQ.put_nowait("LIVE")
 
 if __name__=="__main__":
-	#gobject.MainLoop().run()
-	print time.time()
 	r = RadioPlayer()
 	r.start()
-	#r.goLive()
-	print time.time()
 	r.tuneToAddr("http://stream.sing-sing.org:8000/singsing128")
-	time.sleep(10.0)
 	r.play()
-	'''print time.time()
-	time.sleep(2000.0)
-	print time.time()
-	r.pause()
-	print time.time()
-	print "pause..."
-	print "after pause", time.time()
-	time.sleep(10.0)
-	print time.time()
-	r.play()
-	print time.time()
-	print "play"'''
-	time.sleep(100.0)
-	#gobject.MainLoop().run()
-	#r.stop()
+	print "Playing Sing-Sing Radio"
+	while True:
+		print "1. play"
+		print "2. pause"
+		print "0. exit"
+		print StreamElement.count
+		c = -1
+		try:
+			c = input()
+		except:
+			print "??"
+		if c == 0:
+			break
+		elif c == 1:
+			r.play()
+		elif c == 2:
+			r.pause()
+	r.stop()
 
 
 

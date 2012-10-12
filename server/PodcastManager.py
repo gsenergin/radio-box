@@ -51,7 +51,10 @@ class PodcastManager(threading.Thread):
 
 	def update(self, wait=False, timeout=20.0):
 		#start new thread using worker = Thread(target=Watchdog.read_pipe, args=(self, q, p)) ??
+
+		#debug
 		self.do_update = True
+
 		t = time.time()
 		while self.do_update and wait and (time.time() - t) < timeout:
 			time.sleep(0.1);
@@ -76,7 +79,8 @@ class Channel():
 		if not os.path.isfile(HOME_DIR+'/podcast/'+self.name+'/url'):
 			print "no url specified, ignoring this channel"
 			return
-		for line in fileinput.input(HOME_DIR+'/podcast/'+self.name+'/url'):
+		#debug disable update from the net
+		'''for line in fileinput.input(HOME_DIR+'/podcast/'+self.name+'/url'):
 			#print "xsltproc ", XSLT_PARSE, " ", line[:-1]
 			p = Popen(["xsltproc", XSLT_PARSE, line[:-1]], stdout=PIPE)
 			while p.poll() == None:
@@ -86,7 +90,7 @@ class Channel():
 				self.episodes.append(Episode(self.name, l))
 				l = p.stdout.readline()
 			#print len(self.episodes)
-		fileinput.close()
+		fileinput.close()'''
 		#from the local cache
 		if os.path.exists(HOME_DIR+'/podcast/'+self.name+'/'+EPISODE_CACHE_FILE_NAME):
 			for line in fileinput.input(HOME_DIR+'/podcast/'+self.name+'/'+EPISODE_CACHE_FILE_NAME):
@@ -136,6 +140,7 @@ class Channel():
 	def __cmp__(self, other):
 		return self.name > other.name
 
+#import urllib2
 
 class Episode():
 	def __init__(self, channel_name, data):
@@ -164,6 +169,7 @@ class Episode():
 	def download(self):
 		if not self.already_dl():
 			urllib.urlretrieve(self.url, self.path())
+			#urllib2.urlopen(self.url)
 		#debug
 		else:
 			print "episode already dl"
