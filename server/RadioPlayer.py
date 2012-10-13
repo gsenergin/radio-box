@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 BLOCK_SIZE = 4096
-#100 MB
-REC_MAX_ELEMENT = 100000000/BLOCK_SIZE
+#50 MB - around 1h for sing sing
+REC_MAX_ELEMENT = 50000000/BLOCK_SIZE
 REC_HEAD_MARGIN = 10
 REC_MIN_TAIL_DISTANCE = 70
 
@@ -72,6 +72,9 @@ class RadioPlayer(threading.Thread):
 		self.cmdQ = Queue()
 		self.cursorLock = threading.Lock()
 		self.current_src_addr = None
+
+	def terminate(self):
+		self.shouldRun = False
 
 	def stop(self):
 		self.shouldRun = False
@@ -171,6 +174,9 @@ class RadioPlayer(threading.Thread):
 					self.cursorLock.release()
 				elif cmd == "URL":
 					if len(data) != 0:
+						if self.current_src_addr == data:
+							#same address already set
+							continue
 						source_engine = ""
 						if (string.split(data, "://")[0] == "mms"):
 							source_engine = "mmssrc location=\""
@@ -181,6 +187,9 @@ class RadioPlayer(threading.Thread):
 						self.inPipeSink = self.inPipe.get_by_name('sink') 
 						self.inPipeSink.connect('new-buffer', self.fetch_appsink)
 						self.inPipe.set_state(gst.STATE_PLAYING)
+					else:
+						self.inPipe.set_state(gst.STATE_NULL)
+						self.inPipe = None
 			else:
 				time.sleep(0.1)
 		#stop

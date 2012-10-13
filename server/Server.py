@@ -49,6 +49,7 @@ from FrontEndWatchdog import *
 from StreamHandler import *
 from PodcastManager import *
 from FileBrowser import *
+from RadioPlayer import *
 
 import time, socket
 import fileinput, string, os
@@ -58,11 +59,11 @@ import sys
 #sys.stdout = open(LOG_PATH, 'a', 0)
 
 #import pygtk, gtk, gobject
-import pygst
+'''import pygst
 pygst.require("0.10")
 import gobject
 gobject.threads_init() 
-import gst
+import gst'''
 
 from RadioBoxConstant import *
 
@@ -74,7 +75,7 @@ It :
 	_ Listen for incoming connection (TCP/IP)
 	_ wait for commands. see Radio Box Simple Control protocol for more details
 	_ control radio sation selection, play/pause
-	_ provides data to the client : station name, position
+	_ provides feedback to the client : station name, position
 '''
 class RadioBoxServer:
 	def __init__(self):
@@ -92,18 +93,32 @@ class RadioBoxServer:
 		self.mode = ""
 
 
-	''' Play the selected radio station '''
+	''' Play the selected radio station
+	play live (last available data'''
 	def play_radio(self):
 		#TitleMonitor fetch title of current program
 		#update current radio station
 		self.title_monitor.update_name(self.radio_list[self.current_station][0])
 		print "TM update_name : " + self.radio_list[self.current_station][0]
-		self.streamHandler.updateAddr(self.radio_list[self.current_station][1])
-		print "SH update : " + self.radio_list[self.current_station][1]
+		self.radioPlayer.tuneToAddr(self.radio_list[self.current_station][1])
+		self.radioPlayer.goLive()
+		print "Radio update : " + self.radio_list[self.current_station][1]
 
+	'''pause the playout, radio is buffered'''
 	def pause_radio(self):
+		#self.title_monitor.update_name("")
+		self.radioPlayer.pause()
+
+	'''resume where the radio was previously paused'''
+	def resume_radio(self):
+		if self.mode != "radio.resume" or self.mode != "radio":
+			self.radioPlayer.play()
+
+	'''stop the radio radio, stop buffering'''
+	def stop_radio(self):
 		self.title_monitor.update_name("")
-		self.streamHandler.updateAddr("")
+		self.radioPlayer.pause()
+		self.radio.tuneToAddr("")
 
 	def scroll_position_to_cmd(self, i, n):
 		#i/n
@@ -200,7 +215,7 @@ class RadioBoxServer:
 		elif l[0] == "podcast":
 			self.mode = "podcast"
 			self.current_episode = 0
-			self.pause_radio()
+			self.stop_radio()
 			self.podcast_manager.update(wait=True)
 			#send first channel name and position
 			reply.extend(self.podcast_manager.channels[self.current_channel].to_cmd())
@@ -235,6 +250,12 @@ class RadioBoxServer:
 					reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
 			elif self.mode == "browser.pause":
 				self.streamHandler.resume()
+			elif self.mode == "radio" or self.mode == "radio.resume":
+				self.pause_radio()
+				self.mode = "radio.pause"
+			elif self.mode == "radio.pause":
+				self.resume_radio()
+				self.mode = "radio.resume"
 		elif l[0] == "back":
 			if self.mode == "podcast.episode":
 				self.mode = "podcast"
@@ -255,12 +276,9 @@ class RadioBoxServer:
 			elif self.mode == "browser.play":
 				self.mode = "browser.pause"
 				self.streamHandler.pause()
-		elif l[0] == "browser":
-			self.mode = "browser"
-			self.pause_radio()
-			reply.extend(self.file_browser.getListWindow())
-			reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
-			
+			elif self.mode == "radio.pause" or self.mode == "radio.resume":
+				self.mode = "radio"
+				self.play_radio()
 
 		if len(reply) != 0:
 			#remove french char
@@ -308,9 +326,9 @@ class RadioBoxServer:
 			#Title Monitor
 			self.title_monitor = TitleMonitor(self.titleQ)
 			self.title_monitor.start()
-			#StreamHandler
-			self.streamHandler = StreamHandler()
-			self.streamHandler.start()
+			#RadioPlayer
+			self.radioPlayer = RadioPlayer()
+			self.radioPlayer.start()
 			#podcast manager
 			self.podcast_manager = PodcastManager()
 			self.podcast_manager.start()
@@ -342,7 +360,7 @@ class RadioBoxServer:
 			dog.stop()
 			conn.close()
 			self.title_monitor.stop()
-			self.streamHandler.terminate()
+			self.radioPlayer.stop()
 			self.podcast_manager.stop()
 		s.close()
 
