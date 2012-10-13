@@ -1,6 +1,12 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+BLOCK_SIZE = 4096
+#100 MB
+REC_MAX_ELEMENT = 100000000/BLOCK_SIZE
+REC_HEAD_MARGIN = 10
+REC_MIN_TAIL_DISTANCE = 70
+
 '''
 Some Notes, to organize later
 _ GstBuffer.offset should be set to 0 to work-around some stupid assertion
@@ -8,8 +14,8 @@ _ inPipeSink.emit('pull-buffer') is blocking. For non blocking behaviour, enable
 '''
 import threading, time, string
 from Queue import Queue, Empty
-from RadioBoxConstant import *
-import os
+#from RadioBoxConstant import *
+#import os
 
 #import pygtk, gtk, gobject
 import pygst
@@ -17,12 +23,18 @@ pygst.require("0.10")
 #without GstPipe gives : segmentation fault
 import gobject
 gobject.threads_init()
-
 import gst
 
+'''
+Base element for an audio stream buffer list
+Radio buffer are stored in a double linked list made of this element class
+'''
 class StreamElement():
 	count = 0
 
+	'''
+	prev is the current Head
+	this new element is set as head'''
 	def __init__(self, buff, prev=None):
 		self.ts = time.time()
 		self.buff = buff
@@ -42,7 +54,7 @@ class StreamElement():
 			self.prev.next = None
 		if self.next != None:
 			self.next.prev = None
-		print "delete element #", self.index
+		#print "delete element #", self.index
 
 class RadioPlayer(threading.Thread):
 	def __init__(self):
@@ -51,23 +63,25 @@ class RadioPlayer(threading.Thread):
 		self.inPipeSink = None
 		self.outPipe = None
 		self.outPipeSrc = None
+		#Head of double linked list of buff
 		self.H = None
+		#Tail of double linked list of buff
 		self.T = None
+		#current position in the double linked list of buff
 		self.cursor = None
 		self.cmdQ = Queue()
+		self.cursorLock = threading.Lock()
+		self.current_src_addr = None
 
 	def stop(self):
 		self.shouldRun = False
 
 	def feed_appsrc(self, a, b):
+		self.cursorLock.acquire()
 		if self.cursor != None and  self.cursor.next != None:
-			#print "feeding"
 			self.outPipeSrc.emit('push-buffer', self.cursor.buff)
-			#print self.cursor.index
 			self.cursor = self.cursor.next
-		else:
-			pass
-			#self.last_need_data_failed = True
+		self.cursorLock.release()
 
 	def fetch_appsink(self, sink):
 		t = time.time()
@@ -77,7 +91,7 @@ class RadioPlayer(threading.Thread):
 		e = self.H
 		self.H = StreamElement(buff, e)
 		if e == None:
-			#it is the 1st buff
+			#1st buff
 			self.T = self.H
 			self.cursor = self.H
 
@@ -86,9 +100,17 @@ class RadioPlayer(threading.Thread):
 		while self.shouldRun:
 			#delete too old buff
 			if StreamElement.count > REC_MAX_ELEMENT:
-				e = self.T
-				self.T = self.T.next
-				e.delete()
+				if self.cursor.index - self.T.index < REC_MIN_TAIL_DISTANCE:
+					#stop recording stream, tail reached cursor
+					if self.inPipe != None:
+						self.inPipe.set_state(gst.STATE_NULL)
+						self.inPipe = None
+						#print "stop REC T:", self.T.index, "  cursor:", self.cursor.index
+				else:
+					#delete old buffer
+					e = self.T
+					self.T = self.T.next
+					e.delete()
 			#process commands
 			if not self.cmdQ.empty():
 				cmd = self.cmdQ.get_nowait()
@@ -100,34 +122,53 @@ class RadioPlayer(threading.Thread):
 				except:
 					pass
 				if cmd == "PLAY":
-					if self.inPipe != None:
-						if self.outPipe != None:
-							self.outPipe.set_state(gst.STATE_NULL)
-						self.outPipe = gst.parse_launch("appsrc name=\"appsrc\"  blocksize=\""+str(BLOCK_SIZE)+"\" ! decodebin ! pulsesink")
-						self.outPipeSrc = self.outPipe.get_by_name('appsrc')
-						self.outPipeSrc.connect('need-data', self.feed_appsrc)
-						#wait that enough data has been buffered
-						while self.cursor == None or self.H == None or self.cursor.index + REC_HEAD_MARGIN > self.H.index:
-							time.sleep(0.1)
-						self.outPipe.set_state(gst.STATE_PLAYING)
+					if self.outPipe != None:
+						self.outPipe.set_state(gst.STATE_NULL)
+					#start sound playout
+					self.startOutPipe()
 				elif cmd == "PAUSE":
 					if self.outPipe != None:
 						self.outPipe.set_state(gst.STATE_NULL)
 				elif cmd == "LIVE":
 					if self.outPipe != None:
 						self.outPipe.set_state(gst.STATE_NULL)
+					#set cursor to Head
+					self.cursor = self.H
+
 					if self.inPipe != None:
-						#set cursor to Head
-						self.cursor = self.H
-						#wait that enough data has been buffered
-						while self.cursor == None or self.H == None or self.cursor.index + REC_HEAD_MARGIN > self.H.index:
-							time.sleep(0.1)
-						self.outPipe = gst.parse_launch("appsrc name=\"appsrc\"  blocksize=\""+str(BLOCK_SIZE)+"\" ! decodebin ! pulsesink")
-						self.outPipeSrc = self.outPipe.get_by_name('appsrc')
-						self.outPipeSrc.connect('need-data', self.feed_appsrc)
-						self.outPipe.set_state(gst.STATE_PLAYING)
+						a, b, c = self.inPipe.get_state()
+						inPipe_already_rec = b == gst.STATE_PLAYING
+					else:
+						inPipe_already_rec = False
+					if self.current_src_addr != None and not inPipe_already_rec:
+						source_engine = ""
+						if (string.split(self.current_src_addr, "://")[0] == "mms"):
+							source_engine = "mmssrc location=\""
+						elif (string.split(self.current_src_addr, "://")[0] == "http"):
+							source_engine = "gnomevfssrc location=\""
+						self.inPipe = gst.parse_launch(source_engine + self.current_src_addr + "\" ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
+						self.inPipeSink = self.inPipe.get_by_name('sink') 
+						self.inPipeSink.connect('new-buffer', self.fetch_appsink)
+						self.inPipe.set_state(gst.STATE_PLAYING)
+					#start sound playout
+					self.startOutPipe()
 				elif cmd == "SEEK":
-					pass
+					try:
+						diff = int(data)
+					except:
+						continue
+					self.cursorLock.acquire()
+					if diff >= 0:
+						for i in range(diff):
+							if self.cursor.index + REC_HEAD_MARGIN > self.H.index:
+								break
+							self.cursor = self.cursor.next
+					else:
+						for i in range(abs(diff)):
+							if self.cursor == self.T:
+								break
+							self.cursor = self.cursor.prev
+					self.cursorLock.release()
 				elif cmd == "URL":
 					if len(data) != 0:
 						source_engine = ""
@@ -135,13 +176,13 @@ class RadioPlayer(threading.Thread):
 							source_engine = "mmssrc location=\""
 						elif (string.split(data, "://")[0] == "http"):
 							source_engine = "gnomevfssrc location=\""
+						self.current_src_addr = data
 						self.inPipe = gst.parse_launch(source_engine + data + "\" ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
 						self.inPipeSink = self.inPipe.get_by_name('sink') 
 						self.inPipeSink.connect('new-buffer', self.fetch_appsink)
 						self.inPipe.set_state(gst.STATE_PLAYING)
-					#print "URL update finish"
-				else:
-					time.sleep(0.1)
+			else:
+				time.sleep(0.1)
 		#stop
 		if self.inPipe != None:
 			self.inPipe.set_state(gst.STATE_NULL)
@@ -163,6 +204,21 @@ class RadioPlayer(threading.Thread):
 	def goLive(self):
 		self.cmdQ.put_nowait("LIVE")
 
+	def startOutPipe(self):
+		#wait that enough data has been buffered
+		while self.cursor == None or self.H == None or self.cursor.index + REC_HEAD_MARGIN > self.H.index:
+			time.sleep(0.1)
+		self.outPipe = gst.parse_launch("appsrc name=\"appsrc\"  blocksize=\""+str(BLOCK_SIZE)+"\" ! decodebin ! volume name=\"volume\" ! pulsesink")
+		self.outPipeSrc = self.outPipe.get_by_name('appsrc')
+		self.outPipeSrc.connect('need-data', self.feed_appsrc)
+		mute_delay = self.cursor.index + 1
+		#mute and wait 0.5 sec to avoid a loud "crack" sound when starting streaming
+		self.outPipe.get_by_name("volume").set_property('mute', True)
+		self.outPipe.set_state(gst.STATE_PLAYING)
+		while self.cursor.index < mute_delay:
+			time.sleep(0.1)
+		self.outPipe.get_by_name("volume").set_property("mute", False)
+
 if __name__=="__main__":
 	r = RadioPlayer()
 	r.start()
@@ -172,8 +228,11 @@ if __name__=="__main__":
 	while True:
 		print "1. play"
 		print "2. pause"
+		print "3. +50"
+		print "4. -50"
+		print "5. live"
 		print "0. exit"
-		print StreamElement.count
+		print "total num of rec buff", StreamElement.count
 		c = -1
 		try:
 			c = input()
@@ -185,6 +244,12 @@ if __name__=="__main__":
 			r.play()
 		elif c == 2:
 			r.pause()
+		elif c == 3:
+			r.seek(50)
+		elif c == 4:
+			r.seek(-50)
+		elif c == 5:
+			r.goLive()
 	r.stop()
 
 
