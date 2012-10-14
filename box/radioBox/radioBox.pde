@@ -1,4 +1,3 @@
-
 #include <SPI.h>
 #include <WiflySerial.h>
 #include <Wifly.h>
@@ -10,7 +9,6 @@
 LiquidCrystal_I2C lcd(0x27,20,4);
 #define LCD_EMPTY_LINE "                    "
 //pause char
-//uint8_t pause[8]  = {0x0,0x0,0xA,0xA,0xA,0xA,0x0,0x0};
 uint8_t pause[8]  = {0x0,0x1b,0x1b,0x1b,0x1b,0x1b,0x1b,0x0};
 int pause_char = 0;
 //play char
@@ -20,11 +18,6 @@ int play_char = 1;
 //uint8_t select[8]  = {0x0,0x10,0x18,0xf,0xf,0x18,0x10,0x0};
 uint8_t select[8]  = {0x0,0x00,0x18,0x1e,0x1e,0x18,0x00,0x0};
 int select_char = 2;
-
-//"ip port"
-//#define server_addr "192.168.1.107 50456"
-//#define server_addr "192.168.1.51 50456"
-//useless coz it's specified in Wifly directly
 
 //volt meter pwm output
 #define volt_m_pin 6
@@ -57,38 +50,18 @@ boolean browser_mode = false;
 short int path_mem[10];
 unsigned char path_mem_ind = 0;
 
-/**
-receive a message from server
-@return the number of message processed
-*/
+/** receive a message from server
+@return the number of message processed */
 int receive_messages(){  
   //receive msg from server
   String msg = Wifly::readline();
   int n = 0;
   while (msg.length() != 0){
-    //lcd.setCursor(0, 0);
-    //lcd.print("z");
-    //delay(5000);
     n ++;
     //process message
     int ind = msg.indexOf(":");
     String cmd = msg.substring(0, ind);
     String data = msg.substring(ind + 1);
-
-    //debug
-    /*lcd.setCursor(0, 2);
-    lcd.print(LCD_EMPTY_LINE);
-    lcd.setCursor(0, 2);
-    lcd.print(cmd);
-    lcd.setCursor(0, 3);
-    lcd.print(LCD_EMPTY_LINE);
-    lcd.setCursor(0, 3);
-    lcd.print(data);
-    delay(3000);*/
-    //lcd.setCursor(5, 0);
-    //lcd.print("ww");
-    //delay(5000);
-     
     if (cmd.equals("radio_name")){
       int l = data.length();
       l = (20 - l) / 2;
@@ -105,9 +78,6 @@ int receive_messages(){
       lcd.print(LCD_EMPTY_LINE);
       lcd.setCursor(0, 3);
       lcd.print(LCD_EMPTY_LINE);
-      //lcd.setCursor(5, 0);
-      //lcd.print("qq");
-      //delay(5000);
     }else if (cmd.equals("scroll_position")){
       int ind = data.indexOf("/");
       char buff[5];
@@ -121,9 +91,6 @@ int receive_messages(){
       scroll_max = atoi(buff);
       //set volt meter
       analogWrite(volt_m_pin, scroll_pos*255/(scroll_max));
-      //lcd.setCursor(5, 0);
-      //lcd.print("ggg");
-      //delay(5000);
     }else if (cmd.equals("radio_title")){
       //empty two last lines
       lcd.setCursor(0, 2);
@@ -141,9 +108,6 @@ int receive_messages(){
         }
         lcd.write(data.charAt(i));
       }
-      //lcd.setCursor(5, 0);
-      //lcd.print("kkkk");
-      //delay(5000);
     }else if (cmd.equals("channel_name")){
     //}else if (cmd.equals("channel_date")){
       lcd.setCursor(0, 0);
@@ -165,16 +129,10 @@ int receive_messages(){
         }
         lcd.write(data.charAt(i));
       }
-      //lcd.setCursor(5, 0);
-      //lcd.print("mm");
-      //delay(5000);
     }else if (cmd.equals("channel_date")){
       lcd.setCursor(0, 3);
       lcd.print("    ");
       lcd.print(data);
-      //lcd.setCursor(5, 0);
-      //lcd.print("ppp");
-      //delay(5000);
     }else if (cmd.equals("episode_name")){
       lcd.setCursor(0, 1);
       lcd.print(LCD_EMPTY_LINE);
@@ -195,16 +153,10 @@ int receive_messages(){
         }
         lcd.write(data.charAt(i));
       }
-      //lcd.setCursor(5, 0);
-      //lcd.print("uu");
-      //delay(5000);
     }else if (cmd.equals("episode_date")){
       lcd.setCursor(0, 0);
       lcd.print(data);
       lcd.print("    ");
-      //lcd.setCursor(5, 0);
-      //lcd.print("nn");
-      //delay(5000);
     }else if (cmd.equals("line")){
       ind = data.indexOf(":");
       char tmp[20];
@@ -218,9 +170,6 @@ int receive_messages(){
         lcd.print(" ");
         cpt++;
       }
-      /*if(!data.equals("                   ")){
-        select_ind = y;
-      }*/
     }else if(cmd.equals("cursor")){
       if (data.equals("next")){
         select_ind ++;
@@ -229,13 +178,7 @@ int receive_messages(){
       }
     }
     msg = Wifly::readline();
-    //lcd.setCursor(0, 0);
-    //lcd.print("a");
-    //delay(5000);
   }
-  //lcd.setCursor(0, 5);
-  //lcd.print("bbb");
-  //delay(5000);
   return n;
 }
 
@@ -435,27 +378,8 @@ int tmp_int;
 void loop() {
   //read and process messages received from server
   receive_messages();
-  //read rotary encoder
-  //process required changes
   process_rotary_enc();
   process_switches(false);
-  /*tmp_int = digitalRead(right_switch_pin);
-  if (tmp_int != right_switch){
-    right_switch = tmp_int;
-    if (left_switch == HIGH){
-      if (right_switch == HIGH){
-        start_radio();
-      }else{
-        start_podcast();
-      }
-    }else{
-      if (right_switch == HIGH){
-        start_browser();
-      }else{
-      }
-    }
-  }*/
-  
   //read yellow button
   tmp_int = digitalRead(yellow_button_pin);
   boolean was_pressed = false;
@@ -484,20 +408,9 @@ void loop() {
   if (was_pressed){
     Wifly::write("back\n");
   }
-  
+
   //update cursor
   update_select_cursor();
-  
-#if 0
-  //read
-  while (WiflySerial::read(b)){
-    Serial.print(b, BYTE);
-  }
-  //write
-  if (Serial.available()){
-    WiflySerial::write(Serial.read());
-  }
-#endif
 }
 
 
