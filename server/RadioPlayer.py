@@ -70,6 +70,8 @@ class RadioPlayer(threading.Thread):
 		self.seekLock = threading.Lock()
 		self.cmdQ = Queue()
 		self.input_addr = None
+		#avoid crash when stop/start radio after rec has been full
+		StreamElement.count = 0
 
 	def stop(self):
 		self.shouldRun = False
@@ -147,7 +149,7 @@ class RadioPlayer(threading.Thread):
 		while self.cursor.index < mute_delay:
 			time.sleep(0.1)
 		self.outPipe.get_by_name("volume").set_property("mute", False)
-		print "@@@@@@@@@@@@@@@@@@@@@@@@@@"
+		print "@@@@@@@@@@@@@@@@@@@@@@@@@@ start sound playout"
 
 '''This class is for gst related call
 Indeed such call can lead to crash or freeze

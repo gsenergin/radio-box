@@ -48,7 +48,6 @@ class TitleMonitor(threading.Thread):
 			if self.url != "" and (time.time() - reload_timestamp) > RELOAD_TIMEOUT:
 				reload_timestamp = time.time()
 				#fetch url target
-				print "TM reload"
 				if u != None:
 					#TODO close after reading !!!
 					u.close()
@@ -56,13 +55,16 @@ class TitleMonitor(threading.Thread):
 					#u = urllib2.urlopen(self.url)
 					#debug
 					#hdrs = {'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:16.0) Gecko/20100101 Firefox/16.0', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Cache-Control': 'max-age=0', 'Connection': 'keep-alive', 'Cookie': 'OAX=VNd0XVB51pkACxVW; RMFD=011TNCdqK60NASc; __utma=9893290.1005282376.1350162074.1350176706.1350223898.3; __utmz=9893290.1350162074.1.1.utmcsr=google|utmccn=(organic)|utmcmd=organic|utmctr=(not%20provided); __utmb=9893290.5.10.1350223898; __utmc=9893290', 'DNT': '1'}
-					hdrs = {'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:16.0) Gecko/20100101 Firefox/16.0', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Cache-Control': 'max-age=0', 'Connection': 'keep-alive', 'Cookie': 'OAX=VNd0XVB51pkACxVW; RMFD=011TNCdqK60NASc; __utma=9893290.1005282376.1350162074.1350176706.1350223898.3; __utmz=9893290.1350162074.1.1.utmcsr=google|utmccn=(organic)|utmcmd=organic|utmctr=(not%20provided); __utmb=9893290.5.10.1350223898; __utmc=9893290', 'DNT': '1'}  
-					request = urllib2.Request(url = self.url, headers = hdrs)
-					u = urllib2.urlopen(request)
+					if self.radio_name == "Radio Nova":
+						#not sure which are usefull, but without Cookie, the page is never reloaded
+						hdrs = {'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:16.0) Gecko/20100101 Firefox/16.0', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Cache-Control': 'max-age=0', 'Connection': 'keep-alive', 'Cookie': 'OAX=VNd0XVB51pkACxVW; RMFD=011TNCdqK60NASc; __utma=9893290.1005282376.1350162074.1350176706.1350223898.3; __utmz=9893290.1350162074.1.1.utmcsr=google|utmccn=(organic)|utmcmd=organic|utmctr=(not%20provided); __utmb=9893290.5.10.1350223898; __utmc=9893290', 'DNT': '1'}  
+						request = urllib2.Request(url = self.url, headers = hdrs)
+						u = urllib2.urlopen(request)
+					else:
+						u = urllib2.urlopen(self.url)
 				except:
 					continue
 				data = u.read()
-				print "TM : ", self.radio_name
 				#parse url and enqueue status if it has changed
 				if self.radio_name == "Sing Sing":
 					#find the first line (from the table title)
@@ -87,7 +89,6 @@ class TitleMonitor(threading.Thread):
 					title += "/"
 					ind = data.find("<h3 class=\"titre\">")
 					title += data[ind + 18 : data.find("</span>", ind)]
-					print "NOVA DEBUG : ", title
 				title = replace_non_ascii(title)
 				if u != None:
 					#TODO close after reading !!!
@@ -96,7 +97,6 @@ class TitleMonitor(threading.Thread):
 					try:
 						#give back the title to radioBox
 						self.q.put_nowait(title)
-						#print "sent"
 						last_title = title
 					except:
 						pass

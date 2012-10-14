@@ -9,15 +9,19 @@
 LiquidCrystal_I2C lcd(0x27,20,4);
 #define LCD_EMPTY_LINE "                    "
 //pause char
-uint8_t pause[8]  = {0x0,0x1b,0x1b,0x1b,0x1b,0x1b,0x1b,0x0};
-int pause_char = 0;
+//uint8_t pause_hex[8]  = {0x0,0x1b,0x1b,0x1b,0x1b,0x1b,0x1b,0x0};
+uint8_t pause_hex[8]  = {B00000, B11011, B11011, B11011, B11011, B11011, B11011, B00000};
+const int pause_char = 4;
 //play char
-uint8_t play[8]  = {0x0,0x8,0xc,0xe,0xf,0xe,0xc,0x8};
-int play_char = 1;
+uint8_t play_hex[8]  = {0x0,0x8,0xc,0xe,0xf,0xe,0xc,0x8};
+const int play_char = 1;
 //select char
 //uint8_t select[8]  = {0x0,0x10,0x18,0xf,0xf,0x18,0x10,0x0};
-uint8_t select[8]  = {0x0,0x00,0x18,0x1e,0x1e,0x18,0x00,0x0};
-int select_char = 2;
+uint8_t select_hex[8]  = {0x0,0x00,0x18,0x1e,0x1e,0x18,0x00,0x0};
+const int select_char = 2;
+//////////////////////////////:
+byte radio_rec_hex[8] = {B00100, B01100, B11111, B01101, B00101, B00001, B00001, B11111};
+const int radio_rec_char = 3;
 
 //volt meter pwm output
 #define volt_m_pin 6
@@ -190,6 +194,7 @@ void start_radio(){
   while (c < 2){
      c += receive_messages();
   }
+  lcd.setCursor(0, 0);
 }
 
 /** Starts the podcast */
@@ -239,9 +244,10 @@ void setup() {
   //LCD screen
   lcd.init();
   lcd.backlight();
-  lcd.createChar(pause_char, pause);
-  lcd.createChar(play_char, play);
-  lcd.createChar(select_char, select);
+  lcd.createChar(pause_char, pause_hex);
+  lcd.createChar(play_char, play_hex);
+  lcd.createChar(select_char, select_hex);
+  lcd.createChar(radio_rec_char, radio_rec_hex);
 
   //Wifly
   Wifly::init();

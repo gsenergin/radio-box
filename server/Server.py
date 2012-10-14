@@ -135,8 +135,6 @@ class RadioBoxServer:
 			reply.append(self.radio_list[self.current_station][0])
 			reply.append('\n')
 			reply.extend(self.scroll_position_to_cmd(self.current_station, len(self.radio_list)))
-			#print "play station : ", self.radio_list[self.current_station]
-
 		elif l[0] == "next":
 			if self.mode == "radio":
 				self.current_station = (self.current_station + 1) % len(self.radio_list)
@@ -245,9 +243,11 @@ class RadioBoxServer:
 				self.streamHandler.resume()
 			elif self.mode == "radio" or self.mode == "radio.resume":
 				self.pause_radio()
+				reply.extend("line:0:                  \x04\n")
 				self.mode = "radio.pause"
 			elif self.mode == "radio.pause":
 				self.resume_radio()
+				reply.extend("line:0:                  \x01\n")
 				self.mode = "radio.resume"
 		elif l[0] == "back":
 			if self.mode == "podcast.episode":
@@ -272,6 +272,7 @@ class RadioBoxServer:
 			elif self.mode == "radio.pause" or self.mode == "radio.resume":
 				self.mode = "radio"
 				self.play_radio()
+				reply.extend("line:0:                   \n")
 		elif l[0] == "browser":
 			self.mode = "browser"
 			self.stop_radio()
