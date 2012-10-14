@@ -2,20 +2,21 @@
 # -*- coding: utf-8 -*-
 
 BLOCK_SIZE = 4096
-#50 MB - around 1h for sing sing
+#50 MB - around 1h for sing sing radio
 REC_MAX_ELEMENT = 50000000/BLOCK_SIZE
 REC_HEAD_MARGIN = 10
-REC_MIN_TAIL_DISTANCE = 70
+REC_MIN_TAIL_DISTANCE = 100
+#buff to rewind before resuming to avoid lossing sound (pre-roll, start mute)
+RESUME_REWIND = 5
 
-'''
-Some Notes, to organize later
+PLAYER_INACTIVE_TIMEOUT = 10.0
+
+'''Some Notes, to organize later
 _ GstBuffer.offset should be set to 0 to work-around some stupid assertion
-_ inPipeSink.emit('pull-buffer') is blocking. For non blocking behaviour, enable emit-signals, then connect to a handler
-'''
+_ inPipeSink.emit('pull-buffer') is blocking. 
+	For non blocking behaviour, enable emit-signals, then connect to a handler'''
 import threading, time, string
 from Queue import Queue, Empty
-#from RadioBoxConstant import *
-#import os
 
 #import pygtk, gtk, gobject
 import pygst
@@ -25,18 +26,15 @@ import gobject
 gobject.threads_init()
 import gst
 
-'''
-Base element for an audio stream buffer list
-Radio buffer are stored in a double linked list made of this element class
-'''
+'''Base element for an audio stream buffer list
+Radio buffer are stored in a double linked list made of this element class'''
 class StreamElement():
 	count = 0
 
-	'''
-	prev is the current Head
+	'''prev is the current Head
 	this new element is set as head'''
 	def __init__(self, buff, prev=None):
-		self.ts = time.time()
+		#self.ts = time.time()
 		self.buff = buff
 		self.prev = prev
 		if prev != None:
@@ -59,9 +57,9 @@ class StreamElement():
 class RadioPlayer(threading.Thread):
 	def __init__(self):
 		threading.Thread.__init__(self)
-		self.inPipe = None
+		self.inPipe = gst.Pipeline()
 		self.inPipeSink = None
-		self.outPipe = None
+		self.outPipe = gst.Pipeline()
 		self.outPipeSrc = None
 		#Head of double linked list of buff
 		self.H = None
@@ -69,23 +67,22 @@ class RadioPlayer(threading.Thread):
 		self.T = None
 		#current position in the double linked list of buff
 		self.cursor = None
+		self.seekLock = threading.Lock()
 		self.cmdQ = Queue()
-		self.cursorLock = threading.Lock()
-		self.current_src_addr = None
-
-	def terminate(self):
-		self.shouldRun = False
+		self.input_addr = None
 
 	def stop(self):
 		self.shouldRun = False
 
+	'''called by outPipe appsrc when it needs data'''
 	def feed_appsrc(self, a, b):
-		self.cursorLock.acquire()
+		self.seekLock.acquire()
 		if self.cursor != None and  self.cursor.next != None:
 			self.outPipeSrc.emit('push-buffer', self.cursor.buff)
 			self.cursor = self.cursor.next
-		self.cursorLock.release()
+		self.seekLock.release()
 
+	'''called by inPipe appsink when a buff is ready'''
 	def fetch_appsink(self, sink):
 		t = time.time()
 		buff = self.inPipeSink.emit('pull-buffer')
@@ -100,133 +97,160 @@ class RadioPlayer(threading.Thread):
 
 	def run(self):
 		self.shouldRun = True
+		self.worker = Worker(self)
+		self.worker.start()
+		time.sleep(0.1)
 		while self.shouldRun:
-			#delete too old buff
-			if StreamElement.count > REC_MAX_ELEMENT:
-				if self.cursor.index - self.T.index < REC_MIN_TAIL_DISTANCE:
-					#stop recording stream, tail reached cursor
-					if self.inPipe != None:
-						self.inPipe.set_state(gst.STATE_NULL)
-						self.inPipe = None
-						#print "stop REC T:", self.T.index, "  cursor:", self.cursor.index
-				else:
-					#delete old buffer
-					e = self.T
-					self.T = self.T.next
-					e.delete()
-			#process commands
-			if not self.cmdQ.empty():
-				cmd = self.cmdQ.get_nowait()
-				#print cmd
-				try:
-					i = cmd.index(":")
-					data = cmd[i+1:]
-					cmd = cmd[:i]
-				except:
-					pass
-				if cmd == "PLAY":
-					if self.outPipe != None:
-						self.outPipe.set_state(gst.STATE_NULL)
-					#start sound playout
-					self.startOutPipe()
-				elif cmd == "PAUSE":
-					if self.outPipe != None:
-						self.outPipe.set_state(gst.STATE_NULL)
-				elif cmd == "LIVE":
-					if self.outPipe != None:
-						self.outPipe.set_state(gst.STATE_NULL)
-					#set cursor to Head
-					self.cursor = self.H
+			if not self.worker.isAlive() or \
+			time.time() - self.worker.timestamp > PLAYER_INACTIVE_TIMEOUT:
+				print "re-spawn worker - frozen or dead"
+				self.inPipe.set_state(gst.STATE_NULL)
+				self.outPipe.set_state(gst.STATE_NULL)
+				self.worker.stop()
+				self.worker = Worker(self)
+				self.worker.start()
+			time.sleep(0.1)
+		print "END RadioPlayer"
+		self.worker.stop()
+		self.inPipe.set_state(gst.STATE_NULL)
+		self.outPipe.set_state(gst.STATE_NULL)
 
-					if self.inPipe != None:
-						a, b, c = self.inPipe.get_state()
-						inPipe_already_rec = b == gst.STATE_PLAYING
-					else:
-						inPipe_already_rec = False
-					if self.current_src_addr != None and not inPipe_already_rec:
-						source_engine = ""
-						if (string.split(self.current_src_addr, "://")[0] == "mms"):
-							source_engine = "mmssrc location=\""
-						elif (string.split(self.current_src_addr, "://")[0] == "http"):
-							source_engine = "gnomevfssrc location=\""
-						self.inPipe = gst.parse_launch(source_engine + self.current_src_addr + "\" ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
-						self.inPipeSink = self.inPipe.get_by_name('sink') 
-						self.inPipeSink.connect('new-buffer', self.fetch_appsink)
-						self.inPipe.set_state(gst.STATE_PLAYING)
-					#start sound playout
-					self.startOutPipe()
-				elif cmd == "SEEK":
-					try:
-						diff = int(data)
-					except:
-						continue
-					self.cursorLock.acquire()
-					if diff >= 0:
-						for i in range(diff):
-							if self.cursor.index + REC_HEAD_MARGIN > self.H.index:
-								break
-							self.cursor = self.cursor.next
-					else:
-						for i in range(abs(diff)):
-							if self.cursor == self.T:
-								break
-							self.cursor = self.cursor.prev
-					self.cursorLock.release()
-				elif cmd == "URL":
-					if len(data) != 0:
-						if self.current_src_addr == data:
-							#same address already set
-							continue
-						source_engine = ""
-						if (string.split(data, "://")[0] == "mms"):
-							source_engine = "mmssrc location=\""
-						elif (string.split(data, "://")[0] == "http"):
-							source_engine = "gnomevfssrc location=\""
-						self.current_src_addr = data
-						self.inPipe = gst.parse_launch(source_engine + data + "\" ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
-						self.inPipeSink = self.inPipe.get_by_name('sink') 
-						self.inPipeSink.connect('new-buffer', self.fetch_appsink)
-						self.inPipe.set_state(gst.STATE_PLAYING)
-					else:
-						self.inPipe.set_state(gst.STATE_NULL)
-						self.inPipe = None
-			else:
-				time.sleep(0.1)
-		#stop
-		if self.inPipe != None:
-			self.inPipe.set_state(gst.STATE_NULL)
-		if self.outPipe != None:
-			self.outPipe.set_state(gst.STATE_NULL)
-
-	def tuneToAddr(self, newAddr):
-		self.cmdQ.put_nowait("URL:"+newAddr)
+	def goLive(self, addr=""):
+		self.cmdQ.put_nowait("LIVE:" + addr)
 
 	def pause(self):
 		self.cmdQ.put_nowait("PAUSE")
 
-	def play(self):
-		self.cmdQ.put_nowait("PLAY")
+	def resume(self):
+		self.cmdQ.put_nowait("RESUME")
 
 	def seek(self, diff):
 		self.cmdQ.put_nowait("SEEK:"+str(diff))
 
-	def goLive(self):
-		self.cmdQ.put_nowait("LIVE")
-
-	def startOutPipe(self):
+	def startSoundPlayout(self):
 		#wait that enough data has been buffered
 		while self.cursor == None or self.H == None or self.cursor.index + REC_HEAD_MARGIN > self.H.index:
 			time.sleep(0.1)
 		self.outPipe = gst.parse_launch("appsrc name=\"appsrc\"  blocksize=\""+str(BLOCK_SIZE)+"\" ! decodebin ! volume name=\"volume\" ! pulsesink")
 		self.outPipeSrc = self.outPipe.get_by_name('appsrc')
 		self.outPipeSrc.connect('need-data', self.feed_appsrc)
-		mute_delay = self.cursor.index + 1
-		#mute and wait 0.5 sec to avoid a loud "crack" sound when starting streaming
+		mute_delay = self.cursor.index + 4
+		#mute for 4 buffs to avoid a loud "crack" sound when starting streaming on some stations
 		self.outPipe.get_by_name("volume").set_property('mute', True)
 		self.outPipe.set_state(gst.STATE_PLAYING)
 		while self.cursor.index < mute_delay:
 			time.sleep(0.1)
 		self.outPipe.get_by_name("volume").set_property("mute", False)
+
+'''This class is for gst related call
+Indeed such call can lead to crash or freeze
+So this thread does such call, and when frozen/dead, it is restarted by the RadioPlayer thread'''
+class Worker(threading.Thread):
+	def __init__(self, rp):
+		threading.Thread.__init__(self)
+		self.radioPlayer = rp
+		self.timestamp = time.time()
+
+	def stop(self):
+		self.shouldRun = False
+
+	def run(self):
+		self.shouldRun = True
+		print "worker start"
+		#main loop : process commands, delete old buff
+		while self.shouldRun:
+			self.timestamp = time.time()
+			#print "Ha Ha !!!"
+			#time.sleep(3)
+
+			#debug
+			a, state, c = self.radioPlayer.inPipe.get_state()
+			if state != gst.STATE_PLAYING:
+				print "Not Rec !!"
+				time.sleep(1)
+			a, state, c = self.radioPlayer.outPipe.get_state()
+			if state != gst.STATE_PLAYING:
+				print "Not Playing !!"
+				time.sleep(1)
+
+			if StreamElement.count > REC_MAX_ELEMENT:
+				if self.radioPlayer.cursor.index - self.radioPlayer.T.index < REC_MIN_TAIL_DISTANCE:
+					#stop recording stream, tail reached cursor
+						self.radioPlayer.inPipe.set_state(gst.STATE_NULL)
+						#print "stop REC T:", self.radioPlayer.T.index, "  cursor:", self.radioPlayer.cursor.index
+				else:
+					#delete old buffer
+					e = self.radioPlayer.T
+					self.radioPlayer.T = self.radioPlayer.T.next
+					e.delete()
+			#process commands
+			if not self.radioPlayer.cmdQ.empty():
+				#only consider last command, more responsive human interface
+				while not self.radioPlayer.cmdQ.empty():
+					cmd = self.radioPlayer.cmdQ.get_nowait()
+					print cmd
+				#extract cmd and optional data values
+				try:
+					i = cmd.index(":")
+					data = cmd[i+1:]
+					cmd = cmd[:i]
+				except:
+					pass
+				if cmd == "LIVE":
+					self.radioPlayer.outPipe.set_state(gst.STATE_NULL)
+					self.radioPlayer.inPipe.set_state(gst.STATE_NULL)
+					#set cursor to Head
+					self.radioPlayer.cursor = self.radioPlayer.H
+					#a, state, c = self.radioPlayer.inPipe.get_state()
+					#inPipe_active = state == gst.STATE_PLAYING
+					if len(data) > 0:
+						self.radioPlayer.input_addr= data
+					if self.radioPlayer.input_addr != None:# and not inPipe_active:
+						source_engine = ""
+						if (string.split(self.radioPlayer.input_addr, "://")[0] == "mms"):
+							source_engine = "mmssrc"
+						elif (string.split(self.radioPlayer.input_addr, "://")[0] == "http"):
+							source_engine = "gnomevfssrc"
+						self.radioPlayer.inPipe = gst.parse_launch(source_engine + " location=\"" + self.radioPlayer.input_addr + "\" ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
+						self.radioPlayer.inPipeSink = self.radioPlayer.inPipe.get_by_name('sink') 
+						self.radioPlayer.inPipeSink.connect('new-buffer', self.radioPlayer.fetch_appsink)
+						self.radioPlayer.inPipe.set_state(gst.STATE_PLAYING)
+						#start sound playout
+						self.radioPlayer.startSoundPlayout()
+				elif cmd == "RESUME":
+					#self.radioPlayer.outPipe.set_state(gst.STATE_NULL)
+					#rewind a little
+					ind = self.radioPlayer.cursor.index - RESUME_REWIND
+					if ind < self.radioPlayer.T.index:
+						ind = self.radioPlayer.T.index
+					while self.radioPlayer.cursor.index > ind:
+						self.radioPlayer.cursor = self.radioPlayer.cursor.prev
+					#start sound playout
+					self.radioPlayer.startSoundPlayout()
+				elif cmd == "PAUSE":
+					self.radioPlayer.outPipe.set_state(gst.STATE_NULL)
+				elif cmd == "SEEK":
+					self.radioPlayer.outPipe.set_state(gst.STATE_NULL)
+					try:
+						diff = int(data)
+					except:
+						continue
+					self.radioPlayer.seekLock.acquire()
+					if diff >= 0:
+						for i in range(diff):
+							if self.radioPlayer.cursor.index + REC_HEAD_MARGIN > self.radioPlayer.H.index:
+								break
+							self.radioPlayer.cursor = self.radioPlayer.cursor.next
+					else:
+						for i in range(abs(diff)):
+							if self.radioPlayer.cursor == self.radioPlayer.T:
+								break
+							self.radioPlayer.cursor = self.radioPlayer.cursor.prev
+					self.radioPlayer.seekLock.release()
+			else:
+				time.sleep(0.1)
+		print "END worker Thread"
+
 
 if __name__=="__main__":
 	r = RadioPlayer()
@@ -259,6 +283,9 @@ if __name__=="__main__":
 			r.seek(-50)
 		elif c == 5:
 			r.goLive()
+		elif c == 6:
+			r.tuneToAddr("http://mp3.live.tv-radio.com/franceinfo/all/franceinfo.mp3")
+
 	r.stop()
 
 

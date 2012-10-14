@@ -100,8 +100,7 @@ class RadioBoxServer:
 		#update current radio station
 		self.title_monitor.update_name(self.radio_list[self.current_station][0])
 		print "TM update_name : " + self.radio_list[self.current_station][0]
-		self.radioPlayer.tuneToAddr(self.radio_list[self.current_station][1])
-		self.radioPlayer.goLive()
+		self.radioPlayer.goLive(self.radio_list[self.current_station][1])
 		print "Radio update : " + self.radio_list[self.current_station][1]
 
 	'''pause the playout, radio is buffered'''
@@ -112,9 +111,9 @@ class RadioBoxServer:
 	'''resume where the radio was previously paused'''
 	def resume_radio(self):
 		if self.mode != "radio.resume" or self.mode != "radio":
-			self.radioPlayer.play()
+			self.radioPlayer.resume()
 
-	'''stop the radio radio, stop buffering'''
+	'''stop the radio playout, stop buffering'''
 	def stop_radio(self):
 		self.title_monitor.update_name("")
 		self.radioPlayer.pause()
@@ -178,6 +177,9 @@ class RadioBoxServer:
 				self.file_browser.next()
 				reply.extend(self.file_browser.getListWindow())
 				reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
+			elif self.mode == "radio.pause" or self.mode == "radio.resume":
+				self.radioPlayer.seek(50)
+				self.mode = "radio.pause"
 		elif l[0] == "prev":
 			if self.mode == "radio":
 				self.current_station = self.current_station - 1
@@ -212,6 +214,9 @@ class RadioBoxServer:
 				self.file_browser.prev()
 				reply.extend(self.file_browser.getListWindow())
 				reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
+			elif self.mode == "radio.pause" or self.mode == "radio.resume":
+				self.radioPlayer.seek(-50)
+				self.mode = "radio.pause"
 		elif l[0] == "podcast":
 			self.mode = "podcast"
 			self.current_episode = 0
@@ -279,6 +284,11 @@ class RadioBoxServer:
 			elif self.mode == "radio.pause" or self.mode == "radio.resume":
 				self.mode = "radio"
 				self.play_radio()
+		elif l[0] == "browser":
+			self.mode = "browser"
+			self.stop_radio()
+			reply.extend(self.file_browser.getListWindow())
+			reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
 
 		if len(reply) != 0:
 			#remove french char
@@ -336,6 +346,7 @@ class RadioBoxServer:
 			self.file_browser = FileBrowser()
 			#while client is connected, this loop is main
 			while dog.shouldRun:
+				#print "HO hoho"
 				#update title of currentely running program
 				if not self.titleQ.empty():
 					self.send_title_update(self.titleQ.get_nowait(), conn)
@@ -343,10 +354,12 @@ class RadioBoxServer:
 				try:
 					data.append(conn.recv(BUFFER_SIZE))
 				except socket.timeout:
+					time.sleep(0.1)
 					continue
 				except:
 					#it looks like gst makes exceptions occurs on first connection from client
 					#... plus this is not needed to detect enf of connection, coz watchdog
+					time.sleep(0.1)
 					continue
 				if data[-1].find("\n") != -1:
 					#a new line has been received

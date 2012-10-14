@@ -47,7 +47,7 @@ class TitleMonitor(threading.Thread):
 					time.sleep(0.01)
 					continue
 			if self.url != "" and (time.time() - reload_timestamp) > RELOAD_TIMEOUT:
-				print "TM do reload " + self.radio_name
+				#print "TM do reload " + self.radio_name
 				reload_timestamp = time.time()
 				#fetch url target
 				if u != None:
