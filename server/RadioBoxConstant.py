@@ -29,10 +29,12 @@ class MLStripper(HTMLParser):
     def get_data(self):
         return ''.join(self.fed)
 
+'''remove HTML tags'''
 def strip_tags(html):
     s = MLStripper()
     s.feed(html)
     return s.get_data()
 
+'''replace french char by ASCII'''
 def replace_non_ascii(s):
 	return s.replace("é","e").replace("ê","e").replace("è","e").replace("ë","e").replace("à","a").replace("ù","u").replace("ô","o").replace("ç","c").replace("\xe2\x80\x99", "'").replace("\xc3\x87", "C")

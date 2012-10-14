@@ -4,7 +4,6 @@
 import os, time
 from RadioBoxConstant import *
 
-
 class FileBrowser:
 	def __init__(self):
 		self.current_dir = BROWSER_HOME_DIR

@@ -9,7 +9,7 @@ REC_MIN_TAIL_DISTANCE = 100
 #buff to rewind before resuming to avoid lossing sound (pre-roll, start mute)
 RESUME_REWIND = 5
 
-PLAYER_INACTIVE_TIMEOUT = 10.0
+PLAYER_INACTIVE_TIMEOUT = 20.0
 
 '''Some Notes, to organize later
 _ GstBuffer.offset should be set to 0 to work-around some stupid assertion
@@ -127,10 +127,16 @@ class RadioPlayer(threading.Thread):
 	def seek(self, diff):
 		self.cmdQ.put_nowait("SEEK:"+str(diff))
 
+	'''stop recording, ready to play/goLive'''
+	def standBy(self):
+		self.input_addr = None
+		self.cmdQ.put_nowait("LIVE:")
+
 	def startSoundPlayout(self):
 		#wait that enough data has been buffered
 		while self.cursor == None or self.H == None or self.cursor.index + REC_HEAD_MARGIN > self.H.index:
 			time.sleep(0.1)
+			print "8=>"
 		self.outPipe = gst.parse_launch("appsrc name=\"appsrc\"  blocksize=\""+str(BLOCK_SIZE)+"\" ! decodebin ! volume name=\"volume\" ! pulsesink")
 		self.outPipeSrc = self.outPipe.get_by_name('appsrc')
 		self.outPipeSrc.connect('need-data', self.feed_appsrc)
@@ -141,6 +147,7 @@ class RadioPlayer(threading.Thread):
 		while self.cursor.index < mute_delay:
 			time.sleep(0.1)
 		self.outPipe.get_by_name("volume").set_property("mute", False)
+		print "@@@@@@@@@@@@@@@@@@@@@@@@@@"
 
 '''This class is for gst related call
 Indeed such call can lead to crash or freeze
@@ -164,14 +171,14 @@ class Worker(threading.Thread):
 			#time.sleep(3)
 
 			#debug
-			a, state, c = self.radioPlayer.inPipe.get_state()
+			'''a, state, c = self.radioPlayer.inPipe.get_state()
 			if state != gst.STATE_PLAYING:
 				print "Not Rec !!"
 				time.sleep(1)
 			a, state, c = self.radioPlayer.outPipe.get_state()
 			if state != gst.STATE_PLAYING:
 				print "Not Playing !!"
-				time.sleep(1)
+				time.sleep(1)'''
 
 			if StreamElement.count > REC_MAX_ELEMENT:
 				if self.radioPlayer.cursor.index - self.radioPlayer.T.index < REC_MIN_TAIL_DISTANCE:

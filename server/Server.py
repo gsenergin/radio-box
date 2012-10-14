@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-
 '''
 ## Radio Box Simple Control protocol v0.1 ##
 each command is sent in the format : "cmd[;data]\n"
@@ -34,9 +33,8 @@ TODO
 + radio_rec_play : start play the record
 + radio_rec_pause : pause the record
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-TODO : re-orgnaize thread better coz of main thread fails (some error reading radio which isn't on-line, then other thread hangs for ever
-threads list = 
+
+threads list :
  * main : monitor other threads, accept conn, end other threads (use time stamp to see if threads are active)
  * active conn : manages the active conn with radioBox
  * plays music (this also avoid to get lagging when stream takes time to come)
@@ -58,12 +56,6 @@ import fileinput, string, os
 import sys
 #sys.stdout = open(LOG_PATH, 'a', 0)
 
-#import pygtk, gtk, gobject
-'''import pygst
-pygst.require("0.10")
-import gobject
-gobject.threads_init() 
-import gst'''
 
 from RadioBoxConstant import *
 
@@ -105,7 +97,6 @@ class RadioBoxServer:
 
 	'''pause the playout, radio is buffered'''
 	def pause_radio(self):
-		#self.title_monitor.update_name("")
 		self.radioPlayer.pause()
 
 	'''resume where the radio was previously paused'''
@@ -116,8 +107,7 @@ class RadioBoxServer:
 	'''stop the radio playout, stop buffering'''
 	def stop_radio(self):
 		self.title_monitor.update_name("")
-		self.radioPlayer.pause()
-		self.radio.tuneToAddr("")
+		self.radioPlayer.standBy()
 
 	def scroll_position_to_cmd(self, i, n):
 		#i/n
@@ -128,12 +118,10 @@ class RadioBoxServer:
 		r.append('\n')
 		return r
 
-	'''
-	Execute a command received from the client
+	'''Execute a command received from the client
 	@param cmd the command to execute
 	@param conn the active connection
-	@return 1 if success, 0 else
-	'''
+	@return 1 if success, 0 else'''
 	def execute_command(self, cmd, conn):
 		print "execute : ", cmd
 		l = string.split(cmd, ":", 1)

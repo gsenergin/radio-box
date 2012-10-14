@@ -50,12 +50,10 @@ class PodcastManager(threading.Thread):
 		self.shouldRun = False
 
 	def update(self, wait=False, timeout=20.0):
-		#start new thread using worker = Thread(target=Watchdog.read_pipe, args=(self, q, p)) ??
-
-		#debug
+		#set flag for PodcastManager thread to do the update
 		self.do_update = True
-
 		t = time.time()
+		#wait for update to complete (if option was set)
 		while self.do_update and wait and (time.time() - t) < timeout:
 			time.sleep(0.1);
 

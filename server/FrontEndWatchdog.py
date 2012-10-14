@@ -5,7 +5,6 @@ from Queue import Queue, Empty
 
 #ping echo timeout in sec
 ECHO_TIMEOUT = 2.0
-#ECHO_TIMEOUT = 1.0
 
 class Watchdog(threading.Thread):
 	def __init__(self):
@@ -14,8 +13,7 @@ class Watchdog(threading.Thread):
 
 	''' To be run in separate thread
 	read data from pipe and write it to queue
-	this allows to read pipe data through queue without blocking
-	'''
+	this allows to read pipe data through queue without blocking'''
 	def read_pipe(self, q, p):
 		while self.shouldRun:
 			q.put(p.stdout.readline())
