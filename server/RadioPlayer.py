@@ -78,15 +78,18 @@ class RadioPlayer(threading.Thread):
 
 	'''called by outPipe appsrc when it needs data'''
 	def feed_appsrc(self, a, b):
+		print 'need-buffer ', time.time()
 		self.seekLock.acquire()
 		if self.cursor != None and  self.cursor.next != None:
 			self.outPipeSrc.emit('push-buffer', self.cursor.buff)
 			self.cursor = self.cursor.next
+			print 'did push !!!!!!!!!!!! ', time.time()
 		self.seekLock.release()
 
 	'''called by inPipe appsink when a buff is ready'''
 	def fetch_appsink(self, sink):
-		t = time.time()
+		print 'pull-buffer ', time.time()
+		#t = time.time()
 		buff = self.inPipeSink.emit('pull-buffer')
 		#this is needed to workaround assertion which does not allow stream to start at offset 0
 		buff.offset = 0
@@ -112,7 +115,6 @@ class RadioPlayer(threading.Thread):
 				self.worker = Worker(self)
 				self.worker.start()
 			time.sleep(0.1)
-		print "END RadioPlayer"
 		self.worker.stop()
 		self.inPipe.set_state(gst.STATE_NULL)
 		self.outPipe.set_state(gst.STATE_NULL)
@@ -138,8 +140,7 @@ class RadioPlayer(threading.Thread):
 		#wait that enough data has been buffered
 		while self.cursor == None or self.H == None or self.cursor.index + REC_HEAD_MARGIN > self.H.index:
 			time.sleep(0.1)
-			print "8=>"
-		self.outPipe = gst.parse_launch("appsrc name=\"appsrc\"  blocksize=\""+str(BLOCK_SIZE)+"\" ! decodebin ! volume name=\"volume\" ! pulsesink")
+		self.outPipe = gst.parse_launch("appsrc name=\"appsrc\"  blocksize=\""+str(BLOCK_SIZE)+"\" ! oggdemux ! vorbisdec ! audioresample ! volume name=\"volume\" ! pulsesink")
 		self.outPipeSrc = self.outPipe.get_by_name('appsrc')
 		self.outPipeSrc.connect('need-data', self.feed_appsrc)
 		mute_delay = self.cursor.index + 4
@@ -149,7 +150,7 @@ class RadioPlayer(threading.Thread):
 		while self.cursor.index < mute_delay:
 			time.sleep(0.1)
 		self.outPipe.get_by_name("volume").set_property("mute", False)
-		print "@@@@@@@@@@@@@@@@@@@@@@@@@@ start sound playout"
+		print "@@@@@@@@@@@@@@@@@@@@@@"
 
 '''This class is for gst related call
 Indeed such call can lead to crash or freeze
@@ -169,19 +170,6 @@ class Worker(threading.Thread):
 		#main loop : process commands, delete old buff
 		while self.shouldRun:
 			self.timestamp = time.time()
-			#print "Ha Ha !!!"
-			#time.sleep(3)
-
-			#debug
-			'''a, state, c = self.radioPlayer.inPipe.get_state()
-			if state != gst.STATE_PLAYING:
-				print "Not Rec !!"
-				time.sleep(1)
-			a, state, c = self.radioPlayer.outPipe.get_state()
-			if state != gst.STATE_PLAYING:
-				print "Not Playing !!"
-				time.sleep(1)'''
-
 			if StreamElement.count > REC_MAX_ELEMENT:
 				if self.radioPlayer.cursor.index - self.radioPlayer.T.index < REC_MIN_TAIL_DISTANCE:
 					#stop recording stream, tail reached cursor
@@ -197,7 +185,6 @@ class Worker(threading.Thread):
 				#only consider last command, more responsive human interface
 				while not self.radioPlayer.cmdQ.empty():
 					cmd = self.radioPlayer.cmdQ.get_nowait()
-					print cmd
 				#extract cmd and optional data values
 				try:
 					i = cmd.index(":")
@@ -220,7 +207,9 @@ class Worker(threading.Thread):
 							source_engine = "mmssrc"
 						elif (string.split(self.radioPlayer.input_addr, "://")[0] == "http"):
 							source_engine = "gnomevfssrc"
-						self.radioPlayer.inPipe = gst.parse_launch(source_engine + " location=\"" + self.radioPlayer.input_addr + "\" ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
+						print source_engine
+						#self.radioPlayer.inPipe = gst.parse_launch(source_engine + " location=\"" + self.radioPlayer.input_addr + "\" ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
+						self.radioPlayer.inPipe = gst.parse_launch(source_engine + " location=\"" + self.radioPlayer.input_addr + "\" ! decodebin2 ! audioconvert ! vorbisenc ! oggmux ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
 						self.radioPlayer.inPipeSink = self.radioPlayer.inPipe.get_by_name('sink') 
 						self.radioPlayer.inPipeSink.connect('new-buffer', self.radioPlayer.fetch_appsink)
 						self.radioPlayer.inPipe.set_state(gst.STATE_PLAYING)
@@ -258,6 +247,9 @@ class Worker(threading.Thread):
 					self.radioPlayer.seekLock.release()
 			else:
 				time.sleep(0.1)
+		#TODO replace this by local ref !!!
+		#self.radioPlayer.outPipe.set_state(gst.STATE_NULL)
+		#self.radioPlayer.inPipe.set_state(gst.STATE_NULL)
 		print "END worker Thread"
 
 
