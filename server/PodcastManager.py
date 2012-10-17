@@ -58,7 +58,7 @@ class PodcastManager(threading.Thread):
 			time.sleep(0.1);
 
 	def download(self, episode):
-		#THIS TODO For sure !!! pouet
+		#THIS TODO For sure !!! pouet pouet
 		#start new thread using worker = Thread(target=Watchdog.read_pipe, args=(self, q, p)) ??
 		self.dlQ.put_nowait(episode)
 	def play_episode(self, episode):
