@@ -66,7 +66,7 @@ int receive_messages(){
     int ind = msg.indexOf(":");
     String cmd = msg.substring(0, ind);
     String data = msg.substring(ind + 1);
-    if (cmd.equals("radio_name")){
+    if (cmd.equals("r")){
       int l = data.length();
       l = (20 - l) / 2;
       //empty line
@@ -82,7 +82,7 @@ int receive_messages(){
       lcd.print(LCD_EMPTY_LINE);
       lcd.setCursor(0, 3);
       lcd.print(LCD_EMPTY_LINE);
-    }else if (cmd.equals("scroll_position")){
+    }else if (cmd.equals("s")){
       int ind = data.indexOf("/");
       char buff[5];
       //position
@@ -95,7 +95,7 @@ int receive_messages(){
       scroll_max = atoi(buff);
       //set volt meter
       analogWrite(volt_m_pin, scroll_pos*255/(scroll_max));
-    }else if (cmd.equals("radio_title")){
+    }else if (cmd.equals("rt")){
       //empty two last lines
       lcd.setCursor(0, 2);
       lcd.print(LCD_EMPTY_LINE);
@@ -161,7 +161,7 @@ int receive_messages(){
       lcd.setCursor(0, 0);
       lcd.print(data);
       lcd.print("    ");
-    }else if (cmd.equals("line")){
+    }else if (cmd.equals("l")){
       ind = data.indexOf(":");
       char tmp[20];
       data.substring(0, ind).toCharArray(tmp, 19);
@@ -339,7 +339,9 @@ void process_switches(bool is_init){
   }
 }
 
-void process_rotary_enc(){
+/** return true if rotary enc turned */
+boolean process_rotary_enc(){
+  boolean turned = false;
   int tmpA = digitalRead(rotary_enc_A_pin);
   int tmpB = digitalRead(rotary_enc_B_pin);
   if ((A==B && tmpB!=B) || (A!=B && tmpA!=A)){
@@ -348,10 +350,12 @@ void process_rotary_enc(){
       select_ind --;
       if (select_ind < 0){
         select_ind = 0;
-        Wifly::write("prev\n");
+        Wifly::write("p\n");
+        turned = true;
       }
     }else{
-      Wifly::write("prev\n");
+      Wifly::write("p\n");
+      turned = true;
     }
   }else if ((A==B && tmpA!=A) || (A!=B && tmpB!=B)){
     //turn right
@@ -359,14 +363,17 @@ void process_rotary_enc(){
       select_ind ++;
       if (select_ind > 3){
         select_ind = 3;
-        Wifly::write("next\n");
+        Wifly::write("n\n");
+        turned = true;
       }
     }else{
-      Wifly::write("next\n");
+      Wifly::write("n\n");
+      turned = true;
     }
   }
   B = tmpB;
   A = tmpA;
+  return turned;
 }
 
 void update_select_cursor(){
@@ -385,6 +392,9 @@ void loop() {
   //read and process messages received from server
   receive_messages();
   process_rotary_enc();
+  /*while (process_rotary_enc()){
+    delay(50);
+  }*/
   process_switches(false);
   //read yellow button
   tmp_int = digitalRead(yellow_button_pin);

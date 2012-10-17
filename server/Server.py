@@ -9,35 +9,21 @@ number are transmited in little endian
 Command List (+ receive, - send) :
 + radio : turns on the radio, the server should return the name and position of the station played
           default is the first radio in the list, else it resumes last station played
-- radio_name:<name> : name of the station played
+- r:<name> : name of the station played
 - radio_position:i/n : i position of the station played, n number of stations
-- radio_title:<title> : titles of current program (for example Artist/Title, or show name, etc)
-+ radio_next : set the active station to be the next in the list
-+ radio_prev : set the active station to be the previous in the list
+- rt:<title> : titles of current program (for example Artist/Title, or show name, etc)
 
 + podcast : turns on podcast, return first podcast channel in list
 - podcast_channel:<name> : name of a podcast channel
 - podcast_position:i/n : i position of the channel displayed, n number of channels
-+ podcast_next : display next podcast channel
-+ podcast_prev : display previous podcast channel
-+ podcast_select : open the current channel
 - podcast_episode:<name> : name of an episode to display
 - podcast_position:i/n : i position of the episode displayed, n number of episodes
-+ episode_next : display next episode in channel
-+ episode_prev : display previous episode in channel
-+ episode_play : play the current episode
-+ episode_pause : pause the current episode
-
-TODO
-+ radio_rec : start record the active station, stop the playout (backup only last rec ? append to last rec ? max 200 MB ? then have to set position ?)
-+ radio_rec_play : start play the record
-+ radio_rec_pause : pause the record
 
 
 threads list :
- * main : monitor other threads, accept conn, end other threads (use time stamp to see if threads are active)
+ * main : control other threads, accept conn, end other threads (use time stamp to see if threads are active)
  * active conn : manages the active conn with radioBox
- * plays music (this also avoid to get lagging when stream takes time to come)
+ * radio player (2 threads + gstPipe processes)
  * watch dog
  * title updater
 
@@ -83,6 +69,7 @@ class RadioBoxServer:
 		self.current_channel = 0;
 		self.current_episode = 0;
 		self.mode = ""
+		self.prev_next_ts = time.time()
 
 
 	''' Play the selected radio station
@@ -91,9 +78,9 @@ class RadioBoxServer:
 		#TitleMonitor fetch title of current program
 		#update current radio station
 		self.title_monitor.update_name(self.radio_list[self.current_station][0])
-		print "TM update_name : " + self.radio_list[self.current_station][0]
+		#print "TM update_name : " + self.radio_list[self.current_station][0]
 		self.radioPlayer.goLive(self.radio_list[self.current_station][1])
-		print "Radio update : " + self.radio_list[self.current_station][1]
+		#print "Radio update : " + self.radio_list[self.current_station][1]
 
 	'''pause the playout, radio is buffered'''
 	def pause_radio(self):
@@ -111,7 +98,7 @@ class RadioBoxServer:
 
 	def scroll_position_to_cmd(self, i, n):
 		#i/n
-		r = ["scroll_position:"]
+		r = ["s:"]
 		r.append(str(i))
 		r.append("/")
 		r.append(str(n-1))
@@ -123,7 +110,7 @@ class RadioBoxServer:
 	@param conn the active connection
 	@return 1 if success, 0 else'''
 	def execute_command(self, cmd, conn):
-		print "execute : ", cmd
+		#print "execute : ", cmd
 		l = string.split(cmd, ":", 1)
 		reply = []
 		if l[0] == "radio" :
@@ -131,15 +118,16 @@ class RadioBoxServer:
 			#play the radio stream
 			self.play_radio()
 			#send current radio station name and position
-			reply.append("radio_name:")
+			reply.append("r:")
 			reply.append(self.radio_list[self.current_station][0])
 			reply.append('\n')
 			reply.extend(self.scroll_position_to_cmd(self.current_station, len(self.radio_list)))
-		elif l[0] == "next":
+		elif l[0] == "n":
+			#next
 			if self.mode == "radio":
 				self.current_station = (self.current_station + 1) % len(self.radio_list)
 				#send current radio station name and position
-				reply.append("radio_name:")
+				reply.append("r:")
 				reply.append(self.radio_list[self.current_station][0])
 				reply.append('\n')
 				reply.extend(self.scroll_position_to_cmd(self.current_station, len(self.radio_list)))
@@ -166,13 +154,14 @@ class RadioBoxServer:
 			elif self.mode == "radio.pause" or self.mode == "radio.resume":
 				self.radioPlayer.seek(50)
 				self.mode = "radio.pause"
-		elif l[0] == "prev":
+		elif l[0] == "p":
+			#previous
 			if self.mode == "radio":
 				self.current_station = self.current_station - 1
 				if (self.current_station < 0):
 					self.current_station += len(self.radio_list)
 				#send current radio station name and position
-				reply.append("radio_name:")
+				reply.append("r:")
 				reply.append(self.radio_list[self.current_station][0])
 				reply.append('\n')
 				reply.extend(self.scroll_position_to_cmd(self.current_station, len(self.radio_list)))
@@ -230,7 +219,7 @@ class RadioBoxServer:
 					p = self.file_browser.get_item_path_at(l[1])
 				except:
 					return 0
-				print p
+				#print p
 				if os.path.isfile(p):
 					follow = self.file_browser.get_following_item_paths_of(l[1])
 					self.streamHandler.updateAddr(p, follow)
@@ -243,11 +232,11 @@ class RadioBoxServer:
 				self.streamHandler.resume()
 			elif self.mode == "radio" or self.mode == "radio.resume":
 				self.pause_radio()
-				reply.extend("line:0:                  \x04\n")
+				reply.extend("l:0:                  \x04\n")
 				self.mode = "radio.pause"
 			elif self.mode == "radio.pause":
 				self.resume_radio()
-				reply.extend("line:0:                  \x01\n")
+				reply.extend("l:0:                  \x01\n")
 				self.mode = "radio.resume"
 		elif l[0] == "back":
 			if self.mode == "podcast.episode":
@@ -272,7 +261,7 @@ class RadioBoxServer:
 			elif self.mode == "radio.pause" or self.mode == "radio.resume":
 				self.mode = "radio"
 				self.play_radio()
-				reply.extend("line:0:                   \n")
+				reply.extend("l:0:                   \n")
 		elif l[0] == "browser":
 			self.mode = "browser"
 			self.stop_radio()
@@ -282,7 +271,7 @@ class RadioBoxServer:
 		if len(reply) != 0:
 			#remove french char
 			reply = replace_non_ascii("".join(reply))
-			print reply
+			#print reply
 			try:
 				conn.send(reply)
 			except:
@@ -292,10 +281,10 @@ class RadioBoxServer:
 	def send_title_update(self, title, conn):
 		if self.mode == "radio" :
 			msg = []
-			msg.append("radio_title:")
+			msg.append("rt:")
 			msg.append(title)
 			msg.append('\n')
-			print msg
+			#print msg
 			try:
 				conn.send("".join(msg))
 			except:
@@ -317,7 +306,7 @@ class RadioBoxServer:
 			except:
 				break
 			#listen for incoming commands
-			print "-- waiting for command..."
+			#print "-- waiting for command..."
 			#watchdog monitor client with ping
 			dog = Watchdog()
 			dog.start()

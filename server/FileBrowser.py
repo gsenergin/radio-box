@@ -58,9 +58,9 @@ class FileBrowser:
 		for i in range(self.ind, self.ind + 4):
 			if i >= len(self.l):
 				#add an empty line
-				l.append("line:"+str(i-self.ind)+":                   \n")
+				l.append("l:"+str(i-self.ind)+":                   \n")
 			else:
-				l.append("line:"+str(i-self.ind)+":")
+				l.append("l:"+str(i-self.ind)+":")
 				tmp = self.l[i]
 				i += 1
 				if len(tmp) > 19:

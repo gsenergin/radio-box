@@ -84,7 +84,7 @@ class RadioPlayer(threading.Thread):
 
 	'''called by outPipe appsrc when it needs data'''
 	def feed_appsrc(self, a, b):
-		#print 'need-buffer ', time.time()
+		#print '    0000 >>>    ', time.time()
 		self.seekLock.acquire()
 		while self.cursor.reset and  self.cursor.next != None:
 			self.cursor = self.cursor.next
@@ -99,6 +99,7 @@ class RadioPlayer(threading.Thread):
 
 	'''called by inPipe appsink when a buff is ready'''
 	def fetch_appsink(self, sink):
+		#print '>>> 0000        ', time.time()
 		#print 'pull-buffer ', time.time()
 		#t = time.time()
 		buff = self.inPipeSink.emit('pull-buffer')
@@ -265,7 +266,7 @@ class Worker(threading.Thread):
 
 	def startSoundPlayout(self):
 		#wait that enough data has been buffered
-		print "start playout !!!!!!!!!!!!!!!!!!!!!!!!!!"
+		#print "start playout !!!!!!!!!!!!!!!!!!!!!!!!!!"
 		while (self.radioPlayer.cursor == None or self.radioPlayer.H == None or self.radioPlayer.cursor.index + REC_HEAD_MARGIN > self.radioPlayer.H.index) and self.shouldRun:
 			time.sleep(0.1)
 		if not self.shouldRun:
@@ -280,16 +281,16 @@ class Worker(threading.Thread):
 			self.radioPlayer.outPipe = gst.parse_launch("appsrc name=\"appsrc\" blocksize=\""+str(BLOCK_SIZE)+"\" ! decodebin2 ! audioconvert ! audioresample ! volume name=\"volume\" ! pulsesink")
 		self.radioPlayer.outPipeSrc = self.radioPlayer.outPipe.get_by_name('appsrc')
 		self.radioPlayer.outPipeSrc.connect('need-data', self.radioPlayer.feed_appsrc)
-		mute_delay = self.radioPlayer.cursor.index + 4
+		mute_delay = self.radioPlayer.cursor.index + 1
 		#mute for 4 buffs to avoid a loud "crack" sound when starting streaming on some stations
 		self.radioPlayer.outPipe.get_by_name("volume").set_property('mute', True)
 		self.radioPlayer.outPipe.set_state(gst.STATE_PLAYING)
-		print "wait before unmute !!!!!!!!!!!!!!!!!!!"
+		#print "wait before unmute !!!!!!!!!!!!!!!!!!!"
 		while self.radioPlayer.cursor.index < mute_delay and self.shouldRun:
 			time.sleep(0.1)
 			#print "cursor : ", self.radioPlayer.cursor.index, " mute : ", mute_delay
 		self.radioPlayer.outPipe.get_by_name("volume").set_property("mute", False)
-		print "@@@@@@@@@@@@@@@@@@@@@@"
+		#print "@@@@@@@@@@@@@@@@@@@@@@"
 
 
 if __name__=="__main__":
