@@ -7,7 +7,7 @@ REC_MAX_ELEMENT = 50000000/BLOCK_SIZE
 REC_HEAD_MARGIN = 16
 REC_MIN_TAIL_DISTANCE = 100
 #buff to rewind before resuming to avoid lossing sound (pre-roll, start mute)
-RESUME_REWIND = 3
+RESUME_REWIND = 6
 
 PLAYER_INACTIVE_TIMEOUT = 5.0
 
@@ -45,9 +45,9 @@ class StreamElement():
 			self.index = 0
 		StreamElement.count += 1
 		self.next = None
-		print "created element ", self.index, " - ", time.time()
-		if reset:
-			print "---------------------------------------------------"
+		#print "created element ", self.index, " - ", time.time()
+		'''if reset:
+			print "---------------------------------------------------"'''
 
 	def delete(self):
 		StreamElement.count -= 1
@@ -84,12 +84,12 @@ class RadioPlayer(threading.Thread):
 
 	'''called by outPipe appsrc when it needs data'''
 	def feed_appsrc(self, a, b):
-		print 'need-buffer ', time.time()
+		#print 'need-buffer ', time.time()
 		self.seekLock.acquire()
 		while self.cursor.reset and  self.cursor.next != None:
 			self.cursor = self.cursor.next
 		if self.cursor != None and  self.cursor.next != None:
-			print "feeding with index ", self.cursor.index
+			#print "feeding with index ", self.cursor.index
 			self.outPipeSrc.emit('push-buffer', self.cursor.buff)
 			self.cursor = self.cursor.next
 		else:
