@@ -36,9 +36,6 @@ class StreamHandler(threading.Thread):
 				time.sleep(0.1)
 				self.updateAddr(self.last_addr)
 			else:
-				#debug
-				#clk = self.player.gstream_player.get_clock()
-				#print clk.get_time()
 				time.sleep(0.1)
 
 	def updateAddr(self, newAddr, follow=[]):
@@ -183,11 +180,6 @@ class StreamPlayer(threading.Thread):
 					#avoids loosing playout
 					time.sleep(0.1)
 			else:
-				#debug
-				'''clk = gst_player.get_clock()
-				print clk.get_time()'''
-				#time.sleep(3.1)
-				#print "alive !!"
 				self.timestamp = time.time()
 				if source != None and sink != None:
 					buff = sink.emit('pull-buffer') 
@@ -273,11 +265,6 @@ class StreamPlayer(threading.Thread):
 					#avoids loosing playout
 					time.sleep(0.1)
 			else:
-				#debug
-				'''clk = self.gstream_player.get_clock()
-				print clk.get_time()'''
-				#time.sleep(3.1)
-				#print "alive !!"
 				self.timestamp = time.time()
 				time.sleep(0.1)
 		self.gstream_player.set_state(gst.STATE_NULL)

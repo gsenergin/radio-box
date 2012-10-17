@@ -61,6 +61,8 @@ class PodcastManager(threading.Thread):
 		#THIS TODO For sure !!!
 		#start new thread using worker = Thread(target=Watchdog.read_pipe, args=(self, q, p)) ??
 		self.dlQ.put_nowait(episode)
+	def play_episode(self, episode):
+		pass
 
 	def get_channel_list(self):
 		return self.channels

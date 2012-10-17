@@ -211,7 +211,7 @@ class RadioBoxServer:
 				reply.extend(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode].to_cmd())
 				reply.extend(self.scroll_position_to_cmd(self.current_episode, len(self.podcast_manager.channels[self.current_channel].episodes)))
 			elif self.mode == "podcast.episode":
-				self.streamHandler.play_episode(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode])
+				#self.streamHandler.play_episode(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode])
 				self.mode = "podcast.episode.playing"
 			elif self.mode == "podcast.episode.playing":
 				self.streamHandler.pause()
