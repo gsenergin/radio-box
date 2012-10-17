@@ -6,18 +6,23 @@
 each command is sent in the format : "cmd[;data]\n"
 number are transmited in little endian
 
-Command List (+ receive, - send) :
+from box to server
 + radio : turns on the radio, the server should return the name and position of the station played
-          default is the first radio in the list, else it resumes last station played
-- r:<name> : name of the station played
-- radio_position:i/n : i position of the station played, n number of stations
-- rt:<title> : titles of current program (for example Artist/Title, or show name, etc)
-
 + podcast : turns on podcast, return first podcast channel in list
+          default is the first radio in the list, else it resumes last station played
++ browser : starts browser
++ n : next element, rotary encoder turned 1 pos to the right
++ p : previous element, rotary encoder turned 1 pos to the left
++ select : yellow button pressed
++ back : black button pressed
+
+from server to box
+- r:<name> : name of the station played
+- rt:<title> : titles of current program (for example Artist/Title, or show name, etc)
+- s:i/n : i position of the active element (radio station, podcast, episode, folder, etc)
 - podcast_channel:<name> : name of a podcast channel
 - podcast_position:i/n : i position of the channel displayed, n number of channels
 - podcast_episode:<name> : name of an episode to display
-- podcast_position:i/n : i position of the episode displayed, n number of episodes
 
 
 threads list :

@@ -4,6 +4,7 @@
 BLOCK_SIZE = 4096
 #50 MB - around 1h for sing sing radio
 REC_MAX_ELEMENT = 50000000/BLOCK_SIZE
+#minimum distance between cursor and head
 REC_HEAD_MARGIN = 16
 REC_MIN_TAIL_DISTANCE = 100
 #buff to rewind before resuming to avoid lossing sound (pre-roll, start mute)
@@ -11,7 +12,7 @@ RESUME_REWIND = 6
 
 PLAYER_INACTIVE_TIMEOUT = 5.0
 
-'''Some Notes, to organize later
+'''Notes on GST use:
 _ GstBuffer.offset should be set to 0 to work-around some stupid assertion
 _ inPipeSink.emit('pull-buffer') is blocking. 
 	For non blocking behaviour, enable emit-signals, then connect to a handler'''
@@ -45,9 +46,6 @@ class StreamElement():
 			self.index = 0
 		StreamElement.count += 1
 		self.next = None
-		#print "created element ", self.index, " - ", time.time()
-		'''if reset:
-			print "---------------------------------------------------"'''
 
 	def delete(self):
 		StreamElement.count -= 1
@@ -100,19 +98,12 @@ class RadioPlayer(threading.Thread):
 	'''called by inPipe appsink when a buff is ready'''
 	def fetch_appsink(self, sink):
 		#print '>>> 0000        ', time.time()
-		#print 'pull-buffer ', time.time()
-		#t = time.time()
 		buff = self.inPipeSink.emit('pull-buffer')
 		#this is needed to workaround assertion which does not allow stream to start at offset 0
 		buff.offset = 0
-		#e = self.H
 		self.H = StreamElement(buff, self.H)
-		#test for more dynamic re-start
+		#important while worker thread busy starting sound playout
 		self.worker.timestamp = time.time()
-		'''if e == None:
-			#1st buff
-			self.T = self.H
-			self.cursor = self.H'''
 
 	def run(self):
 		self.shouldRun = True
@@ -173,7 +164,7 @@ class Worker(threading.Thread):
 				if self.radioPlayer.cursor.index - self.radioPlayer.T.index < REC_MIN_TAIL_DISTANCE:
 					#stop recording stream, tail reached cursor
 						self.radioPlayer.inPipe.set_state(gst.STATE_NULL)
-						#print "stop REC T:", self.radioPlayer.T.index, "  cursor:", self.radioPlayer.cursor.index
+						print "stop REC " + str(datetime.datetime.now()) + " T:", self.radioPlayer.T.index, "  cursor:", self.radioPlayer.cursor.index
 				else:
 					#delete old buffer
 					e = self.radioPlayer.T
@@ -203,22 +194,13 @@ class Worker(threading.Thread):
 					if self.radioPlayer.input_addr != None:
 						source_engine = ""
 						if (string.split(self.radioPlayer.input_addr, "://")[0] == "mms"):
-							#source_engine = "mmssrc"
+							#mms://
 							source_engine = "mmssrc location=\"" + self.radioPlayer.input_addr + "\""
-							#working with ! oggdemux ! vorbisdec ! audioresample ! volume name=\"volume\" ! pulsesink"
-							#self.radioPlayer.inPipe = gst.parse_launch(source_engine + " location=\"" + self.radioPlayer.input_addr + "\" ! decodebin2 ! audioconvert ! vorbisenc ! oggmux ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
-							self.radioPlayer.inPipe = gst.parse_launch(source_engine + " location=\"" + self.radioPlayer.input_addr + "\" ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
 						else:
-							#elif (string.split(self.radioPlayer.input_addr, "://")[0] == "http"):
 							#http://
-							#source_engine = "gnomevfssrc"
 							source_engine = "gnomevfssrc location=\"" + self.radioPlayer.input_addr + "\""
-							self.radioPlayer.inPipe = gst.parse_launch(source_engine + " ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
-						#self.radioPlayer.inPipe = gst.parse_launch(source_engine + " location=\"" + self.radioPlayer.input_addr + "\" ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
-						#self.radioPlayer.inPipe = gst.parse_launch(source_engine + " location=\"" + self.radioPlayer.input_addr + "\" ! decodebin2 ! audioconvert ! vorbisenc ! oggmux ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
-						#self.radioPlayer.inPipe = gst.parse_launch(source_engine + " location=\"" + self.radioPlayer.input_addr + "\" ! decodebin2 ! audioconvert ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
-						#self.radioPlayer.inPipe = gst.parse_launch(source_engine + " ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
-
+						self.radioPlayer.inPipe = gst.parse_launch(source_engine + " ! appsink name=\"sink\" blocksize=\""+str(BLOCK_SIZE)+"\" emit-signals=\"true\"")
+						#insert reset buffer element
 						self.radioPlayer.H = StreamElement(prev=self.radioPlayer.H, reset=True)
 						self.radioPlayer.cursor =self.radioPlayer.H
 
@@ -259,38 +241,24 @@ class Worker(threading.Thread):
 					self.radioPlayer.seekLock.release()
 			else:
 				time.sleep(0.1)
-		#TODO replace this by local ref !!!
-		#self.radioPlayer.outPipe.set_state(gst.STATE_NULL)
-		#self.radioPlayer.inPipe.set_state(gst.STATE_NULL)
 		print "END worker Thread"
 
 	def startSoundPlayout(self):
 		#wait that enough data has been buffered
-		#print "start playout !!!!!!!!!!!!!!!!!!!!!!!!!!"
 		while (self.radioPlayer.cursor == None or self.radioPlayer.H == None or self.radioPlayer.cursor.index + REC_HEAD_MARGIN > self.radioPlayer.H.index) and self.shouldRun:
 			time.sleep(0.1)
 		if not self.shouldRun:
 			return
-		#self.radioPlayer.outPipe = gst.parse_launch("appsrc name=\"appsrc\"  blocksize=\""+str(BLOCK_SIZE)+"\" ! oggdemux ! vorbisdec ! audioresample ! volume name=\"volume\" ! pulsesink")
-		#self.radioPlayer.outPipe = gst.parse_launch("appsrc name=\"appsrc\"  blocksize=\""+str(BLOCK_SIZE)+"\" ! decodebin2 ! audioconvert ! audioresample ! volume name=\"volume\" ! pulsesink")
-		if (string.split(self.radioPlayer.input_addr, "://")[0] == "mms"):
-			#mms://
-			self.radioPlayer.outPipe = gst.parse_launch("appsrc name=\"appsrc\" blocksize=\""+str(BLOCK_SIZE)+"\" ! decodebin2 ! audioconvert ! audioresample ! volume name=\"volume\" ! pulsesink")
-		else:
-			#http://
-			self.radioPlayer.outPipe = gst.parse_launch("appsrc name=\"appsrc\" blocksize=\""+str(BLOCK_SIZE)+"\" ! decodebin2 ! audioconvert ! audioresample ! volume name=\"volume\" ! pulsesink")
+		self.radioPlayer.outPipe = gst.parse_launch("appsrc name=\"appsrc\" blocksize=\""+str(BLOCK_SIZE)+"\" ! decodebin2 ! audioresample ! volume name=\"volume\" ! pulsesink")
 		self.radioPlayer.outPipeSrc = self.radioPlayer.outPipe.get_by_name('appsrc')
 		self.radioPlayer.outPipeSrc.connect('need-data', self.radioPlayer.feed_appsrc)
 		mute_delay = self.radioPlayer.cursor.index + 1
-		#mute for 4 buffs to avoid a loud "crack" sound when starting streaming on some stations
+		#mute for 1 buff to avoid a loud "crack" sound when starting streaming on some stations
 		self.radioPlayer.outPipe.get_by_name("volume").set_property('mute', True)
 		self.radioPlayer.outPipe.set_state(gst.STATE_PLAYING)
-		#print "wait before unmute !!!!!!!!!!!!!!!!!!!"
 		while self.radioPlayer.cursor.index < mute_delay and self.shouldRun:
 			time.sleep(0.1)
-			#print "cursor : ", self.radioPlayer.cursor.index, " mute : ", mute_delay
 		self.radioPlayer.outPipe.get_by_name("volume").set_property("mute", False)
-		#print "@@@@@@@@@@@@@@@@@@@@@@"
 
 
 if __name__=="__main__":
@@ -302,8 +270,8 @@ if __name__=="__main__":
 	while True:
 		print "1. play"
 		print "2. pause"
-		print "3. +50"
-		print "4. -50"
+		print "3. +50 blocks"
+		print "4. -50 blocks"
 		print "5. live"
 		print "0. exit"
 		print "total num of rec buff", StreamElement.count
