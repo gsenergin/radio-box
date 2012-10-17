@@ -27,6 +27,8 @@ import gobject
 gobject.threads_init()
 import gst
 
+######### TODO restart a radio playout if dead/frozen detected
+
 '''Base element for an audio stream buffer list
 Radio buffer are stored in a double linked list made of this element class'''
 class StreamElement():
@@ -97,7 +99,7 @@ class RadioPlayer(threading.Thread):
 
 	'''called by inPipe appsink when a buff is ready'''
 	def fetch_appsink(self, sink):
-		#print '>>> 0000        ', time.time()
+		print '>>> 0000        ', time.time()
 		buff = self.inPipeSink.emit('pull-buffer')
 		#this is needed to workaround assertion which does not allow stream to start at offset 0
 		buff.offset = 0
@@ -157,6 +159,7 @@ class Worker(threading.Thread):
 	def run(self):
 		self.shouldRun = True
 		print "worker start"
+		self.radioPlayer.goLive()
 		#main loop : process commands, delete old buff
 		while self.shouldRun:
 			self.timestamp = time.time()
