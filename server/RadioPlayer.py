@@ -168,7 +168,6 @@ class Worker(threading.Thread):
 	def run(self):
 		self.shouldRun = True
 		print "worker start"
-		#self.radioPlayer.goLive()
 		#main loop : process commands, delete old buff
 		while self.shouldRun:
 			self.timestamp = time.time()

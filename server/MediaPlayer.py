@@ -65,6 +65,11 @@ class StreamWorker(threading.Thread):
 	def stop(self):
 		self.shouldRun = False
 
+	#def bus_msg_handler(self, bus, msg, data):
+	def on_message(self, bus, msg):
+		print "########### RECV MESSAGE FROM BUS"
+		print msg
+
 	def run(self):
 		self.shouldRun = True
 		gst_player = gst.Pipeline("player")
@@ -94,10 +99,18 @@ class StreamWorker(threading.Thread):
 					source_engine = ""
 					if (string.split(url, "://")[0] == "mms"):
 						source_engine = "mmssrc location=\"" + url + "\""
-					else:
+					else:#(string.split(url, "://")[0] == "http"):
 						#http, local file, etc...
 						source_engine = "gnomevfssrc location=\"" + url + "\""
+					'''else:
+						#local file
+						source_engine = "filesrc location=\"" + url + "\""'''
 					gst_player = gst.parse_launch(source_engine+" ! decodebin2 ! audioresample ! pulsesink")
+					bus = gst_player.get_bus()
+					#bus.add_watch(self.bus_msg_handler)
+					bus.add_signal_watch()
+					bus.connect("message", self.on_message)
+
 					gst_player.set_state(gst.STATE_PLAYING)
 					self.timestamp = time.time()
 					start_track_timestamp = time.time()
