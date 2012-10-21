@@ -7,10 +7,12 @@ from dateutil.parser import parse
 from Queue import Queue, Empty
 
 #minimum time in sec between 2 podcast updates : 30min
-MIN_TIME_BEFOR_UPDATE = 1800
+MIN_TIME_BEFORE_UPDATE = 1800
 
 class PodcastManager(threading.Thread):
-	last_update = 0
+	#debug - this disable podcats update from net for the first 30 min of use
+	#last_update = 0
+	last_update = time.time()
 
 	def __init__(self):
 		threading.Thread.__init__(self)
@@ -35,11 +37,10 @@ class PodcastManager(threading.Thread):
 						if len(c.episodes) != 0:
 							tmp.append(c)
 					self.channels = tmp
-					self.do_update = False
-				except e:
-					self.do_update = False
-					print "Error while updating podcast"
-					print e
+				except:
+					print "Error while updating Channel ", d
+				self.do_update = False
+				PodcastManager.last_update = time.time()
 			elif not self.dlQ.empty():
 				try:
 					e = self.dlQ.get_nowait()
@@ -99,7 +100,6 @@ class Channel():
 					l = p.stdout.readline()
 				#print len(self.episodes)
 			fileinput.close()
-			PodcastManager.last_update = time.time()
 			self.update_local_cache()
 		else:
 			#from the local cache

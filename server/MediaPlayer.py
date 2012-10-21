@@ -34,7 +34,7 @@ class MediaPlayer(threading.Thread):
 	def updateAddr(self, newAddr, follow=[]):
 		self.worker.addrQ.put_nowait(newAddr)
 		self.worker.follow = follow
-		print ">>>>>>>>>>>>>><", follow
+		print newAddr, ">>>>>>>>>>>>>><", follow
 
 	def terminate(self):
 		self.shouldRun = False
@@ -102,9 +102,10 @@ class StreamWorker(threading.Thread):
 						#http, local file, etc...
 						source_engine = "gnomevfssrc location=\"" + url + "\""
 					gst_player = gst.parse_launch(source_engine+" ! decodebin2 ! audioresample ! pulsesink")
+					gst_player.set_state(gst.STATE_PLAYING)
 					self.timestamp = time.time()
 					start_track_timestamp = time.time()
-					print "start url player"
+					print "started new track"
 
 				else:
 					gst_player.set_state(gst.STATE_NULL)
@@ -137,6 +138,9 @@ class StreamWorker(threading.Thread):
 					gst_player.seek_simple(gst.FORMAT_TIME, gst.SEEK_FLAG_FLUSH, pos)
 					#avoids loosing playout
 					time.sleep(0.1)
+			else:
+				time.sleep(0.1)
+				#print gst_player.get_state()
 		gst_player.set_state(gst.STATE_NULL)
 
 

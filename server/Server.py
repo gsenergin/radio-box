@@ -231,13 +231,13 @@ class RadioBoxServer:
 				if os.path.isfile(p):
 					follow = self.file_browser.get_following_item_paths_of(l[1])
 					self.mediaPlayer.updateAddr(p, follow)
-					self.mode = "browser.play"
+					#self.mode = "browser.play"
 				else:
 					self.file_browser.cd(p)
 					reply.extend(self.file_browser.getListWindow())
 					reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
-			elif self.mode == "browser.pause":
-				self.mediaPlayer.resume()
+				'''elif self.mode == "browser.pause":
+				self.mediaPlayer.resume()'''
 			elif self.mode == "radio" or self.mode == "radio.resume":
 				self.pause_radio()
 				reply.extend("l:0:                  \x04\n")
@@ -257,15 +257,14 @@ class RadioBoxServer:
 				self.mode = "podcast"
 				reply.extend(self.podcast_manager.channels[self.current_channel].to_cmd())
 				reply.extend(self.scroll_position_to_cmd(self.current_channel, len(self.podcast_manager.channels)))
-			elif self.mode == "browser"\
-			or self.mode == "browser.pause":
+			elif self.mode == "browser":#or self.mode == "browser.pause":
 				self.mode = "browser"
 				self.file_browser.up()
 				reply.extend(self.file_browser.getListWindow())
 				reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
-			elif self.mode == "browser.play":
+				'''elif self.mode == "browser.play":
 				self.mode = "browser.pause"
-				self.mediaPlayer.pause()
+				self.mediaPlayer.pause()'''
 			elif self.mode == "radio.pause" or self.mode == "radio.resume":
 				self.mode = "radio"
 				self.play_radio()
@@ -314,7 +313,6 @@ class RadioBoxServer:
 			except:
 				break
 			#listen for incoming commands
-			#print "-- waiting for command..."
 			#watchdog monitor client with ping
 			dog = Watchdog()
 			dog.start()
@@ -335,7 +333,6 @@ class RadioBoxServer:
 			self.file_browser = FileBrowser()
 			#while client is connected, this loop is main
 			while dog.shouldRun:
-				#print "HO hoho"
 				#update title of currentely running program
 				if not self.titleQ.empty():
 					self.send_title_update(self.titleQ.get_nowait(), conn)

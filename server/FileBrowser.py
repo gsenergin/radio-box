@@ -97,7 +97,7 @@ class FileBrowser:
 
 	def get_following_item_paths_of(self, index):
 		l = []
-		for i in range(self.ind + int(index), len(self.l)):
+		for i in range(self.ind + int(index) + 1, len(self.l)):
 			l.append(self.current_dir + self.l[i])
 		return l
 
