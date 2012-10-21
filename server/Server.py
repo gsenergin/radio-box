@@ -115,7 +115,7 @@ class RadioBoxServer:
 	@param conn the active connection
 	@return 1 if success, 0 else'''
 	def execute_command(self, cmd, conn):
-		#print "execute : ", cmd
+		print "execute : ", cmd
 		l = string.split(cmd, ":", 1)
 		reply = []
 		if l[0] == "radio" :
@@ -150,7 +150,8 @@ class RadioBoxServer:
 				reply.extend(self.scroll_position_to_cmd(self.current_episode, len(self.podcast_manager.channels[self.current_channel].episodes)))
 			elif self.mode == "podcast.episode.playing":
 				#seek forward
-				self.streamHandler.seek(10)
+				#self.streamHandler.seek(10)
+				pass
 			elif self.mode == "browser"\
 			or self.mode == "browser.play":
 				self.file_browser.next()
@@ -188,7 +189,8 @@ class RadioBoxServer:
 				reply.extend(self.scroll_position_to_cmd(self.current_episode, len(self.podcast_manager.channels[self.current_channel].episodes)))
 			elif self.mode == "podcast.episode.playing":
 				#seek backward
-				self.streamHandler.seek(-10)
+				#self.streamHandler.seek(-10)
+				pass
 			elif self.mode == "browser"\
 			or self.mode == "browser.play":
 				self.file_browser.prev()
@@ -212,6 +214,7 @@ class RadioBoxServer:
 				reply.extend(self.scroll_position_to_cmd(self.current_episode, len(self.podcast_manager.channels[self.current_channel].episodes)))
 			elif self.mode == "podcast.episode":
 				#self.streamHandler.play_episode(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode])
+				self.streamHandler.updateAddr(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode].url)
 				self.mode = "podcast.episode.playing"
 			elif self.mode == "podcast.episode.playing":
 				self.streamHandler.pause()
@@ -325,6 +328,9 @@ class RadioBoxServer:
 			#podcast manager
 			self.podcast_manager = PodcastManager()
 			self.podcast_manager.start()
+			#streamHandler
+			self.streamHandler = StreamHandler()
+			self.streamHandler.start()
 			#file browser
 			self.file_browser = FileBrowser()
 			#while client is connected, this loop is main
@@ -358,6 +364,7 @@ class RadioBoxServer:
 			self.title_monitor.stop()
 			self.radioPlayer.stop()
 			self.podcast_manager.stop()
+			self.streamHandler.terminate()
 		s.close()
 
 

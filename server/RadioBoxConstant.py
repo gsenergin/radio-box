@@ -37,4 +37,4 @@ def strip_tags(html):
 
 '''replace french char by ASCII'''
 def replace_non_ascii(s):
-	return s.replace("é","e").replace("ê","e").replace("è","e").replace("ë","e").replace("à","a").replace("ù","u").replace("ô","o").replace("ç","c").replace("\xe2\x80\x99", "'").replace("\xc3\x87", "C")
+	return s.replace("é","e").replace("ê","e").replace("è","e").replace("ë","e").replace("à","a").replace("ù","u").replace("ô","o").replace("ç","c").replace("\xe2\x80\x99", "'").replace("\xc3\x87", "C").replace("î","i").replace("ï","i").replace("â","a")

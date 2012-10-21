@@ -77,6 +77,7 @@ class RadioPlayer(threading.Thread):
 		self.input_addr = None
 		#avoid crash when stop/start radio after rec has been full
 		StreamElement.count = 0
+		self.appsrc_failed = False
 
 	def stop(self):
 		self.shouldRun = False
@@ -85,7 +86,7 @@ class RadioPlayer(threading.Thread):
 	'''called by outPipe appsrc when it needs data'''
 	def feed_appsrc(self, a, b):
 		#print '    0000 >>>    ', time.time()
-		self.seekLock.acquire()
+		#self.seekLock.acquire()
 		while self.cursor.reset and  self.cursor.next != None:
 			self.cursor = self.cursor.next
 		if self.cursor != None and  self.cursor.next != None:
@@ -95,15 +96,20 @@ class RadioPlayer(threading.Thread):
 		else:
 			#TODO watch this, as it mean that playout stops !!!!!
 			print "---- ERROR ---- appsrc could not be fed, no buff available (? increase front delay ?)"
-		self.seekLock.release()
+			self.appsrc_failed = True
+		#self.seekLock.release()
 
 	'''called by inPipe appsink when a buff is ready'''
 	def fetch_appsink(self, sink):
-		print '>>> 0000        ', time.time()
+		#print '>>> 0000        ', time.time()
 		buff = self.inPipeSink.emit('pull-buffer')
 		#this is needed to workaround assertion which does not allow stream to start at offset 0
 		buff.offset = 0
 		self.H = StreamElement(buff, self.H)
+		if self.appsrc_failed:
+			self.outPipeSrc.emit('push-buffer', buff)
+			print " <<<< Catch up >>>> feed appsrc"
+			self.appsrc_failed = False
 		#important while worker thread busy starting sound playout
 		self.worker.timestamp = time.time()
 

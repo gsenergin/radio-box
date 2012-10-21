@@ -6,7 +6,12 @@ from subprocess import Popen, PIPE
 from dateutil.parser import parse
 from Queue import Queue, Empty
 
+#minimum time in sec between 2 podcast updates : 30min
+MIN_TIME_BEFOR_UPDATE = 1800
+
 class PodcastManager(threading.Thread):
+	last_update = 0
+
 	def __init__(self):
 		threading.Thread.__init__(self)
 		self.channels = []
@@ -60,7 +65,8 @@ class PodcastManager(threading.Thread):
 	def download(self, episode):
 		#THIS TODO For sure !!! pouet pouet
 		#start new thread using worker = Thread(target=Watchdog.read_pipe, args=(self, q, p)) ??
-		self.dlQ.put_nowait(episode)
+		#self.dlQ.put_nowait(episode)
+		pass
 	def play_episode(self, episode):
 		pass
 
@@ -74,44 +80,45 @@ class Channel():
 		self.reload_episodes()
 
 	def reload_episodes(self):
-		##extract episode list from internet and local cache
+		##extract episode list from internet or local cache
 		#from the net
 		if not os.path.isfile(HOME_DIR+'/podcast/'+self.name+'/url'):
 			print "no url specified, ignoring this channel"
 			return
-		#debug disable update from the net
-		'''for line in fileinput.input(HOME_DIR+'/podcast/'+self.name+'/url'):
-			#print "xsltproc ", XSLT_PARSE, " ", line[:-1]
-			p = Popen(["xsltproc", XSLT_PARSE, line[:-1]], stdout=PIPE)
-			while p.poll() == None:
-				time.sleep(0.1)
-			l = p.stdout.readline()
-			while len(l) != 0:
-				self.episodes.append(Episode(self.name, l))
+		#fetch from the net, only if is has not been done the last MIN_TIME_BEFORE_UPDATE
+		if time.time() - PodcastManager.last_update > MIN_TIME_BEFORE_UPDATE:
+			print "update channel form net"
+			for line in fileinput.input(HOME_DIR+'/podcast/'+self.name+'/url'):
+				#print "xsltproc ", XSLT_PARSE, " ", line[:-1]
+				p = Popen(["xsltproc", XSLT_PARSE, line[:-1]], stdout=PIPE)
+				while p.poll() == None:
+					time.sleep(0.1)
 				l = p.stdout.readline()
-			#print len(self.episodes)
-		fileinput.close()'''
-		#from the local cache
-		if os.path.exists(HOME_DIR+'/podcast/'+self.name+'/'+EPISODE_CACHE_FILE_NAME):
-			for line in fileinput.input(HOME_DIR+'/podcast/'+self.name+'/'+EPISODE_CACHE_FILE_NAME):
-				#print "line : ", line
-				if line != '\n':
-					e = Episode(self.name, line)
-					if not e in self.episodes:
-						#add to list
-						self.episodes.append(e)
+				while len(l) != 0:
+					self.episodes.append(Episode(self.name, l))
+					l = p.stdout.readline()
+				#print len(self.episodes)
 			fileinput.close()
-		self.episodes.sort(reverse=True)
-		print ">>>>>>>>>>>>>>> num of channel ", len(self.episodes)
-		while len(self.episodes) > MAX_EPISODE_PER_CHANNEL:
+			PodcastManager.last_update = time.time()
+			self.update_local_cache()
+		else:
+			#from the local cache
+			if os.path.exists(HOME_DIR+'/podcast/'+self.name+'/'+EPISODE_CACHE_FILE_NAME):
+				for line in fileinput.input(HOME_DIR+'/podcast/'+self.name+'/'+EPISODE_CACHE_FILE_NAME):
+					#print "line : ", line
+					if line != '\n':
+						e = Episode(self.name, line)
+						if not e in self.episodes:
+							#add to list
+							self.episodes.append(e)
+				fileinput.close()
+			#order episodes by date, most recent first
+			self.episodes.sort(reverse=True)
+		print ">>>>>>>>>>>>>>> num of episodes ", len(self.episodes)
+		'''while len(self.episodes) > MAX_EPISODE_PER_CHANNEL:
 			e = self.episodes.pop()
 			if os.path.isfile(e.path()):
-				os.remove(e.path())
-		self.update_local_cache()
-		#print self.episodes
-		'''for e in self.episodes:
-			print e
-		'''
+				os.remove(e.path())'''
 
 	def update_local_cache(self):
 		f = open(HOME_DIR+'/podcast/'+self.name+'/'+EPISODE_CACHE_FILE_NAME, 'wb+')
@@ -146,10 +153,6 @@ class Episode():
 	def __init__(self, channel_name, data):
 		self.channel_name = channel_name
 		a = data.split(":-:")
-		'''print data
-		for e in a:
-			print e
-		'''
 		self.title = a[0].replace("\"", "").strip()
 		try :
 			self.date = parse(a[1])
@@ -163,10 +166,12 @@ class Episode():
 	def __cmp__(self, other):
 		return (self.date - other.date).total_seconds()
 
-	def already_dl(self):
+	#deprecated
+	'''def already_dl(self):
 		return os.path.exists(self.path())
 
 	def download(self):
+		pass
 		if not self.already_dl():
 			urllib.urlretrieve(self.url, self.path())
 			#urllib2.urlopen(self.url)
@@ -175,7 +180,7 @@ class Episode():
 			print "episode already dl"
 
 	def path(self):
-		return HOME_DIR+'/podcast/'+self.channel_name+'/'+self.date.strftime("%Y_%m_%d_%H_%M_%S.episode")
+		return HOME_DIR+'/podcast/'+self.channel_name+'/'+self.date.strftime("%Y_%m_%d_%H_%M_%S.episode")'''
 
 	def __str__(self):
 		return self.date.strftime("%a, %d %b %Y %H:%M:%S %z")+" "+self.title
