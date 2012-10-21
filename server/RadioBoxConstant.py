@@ -5,7 +5,7 @@ PORT = 50456
 BUFFER_SIZE = 4096
 TIMEOUT = 0.01
 
-HOME_DIR = "/home/bastien/Documents/radio-box/server"
+HOME_DIR = "/home/bastien/Documents/radio-box/radio-box.git/server"
 RADIO_STATION_LIST = HOME_DIR + "/live_radio.list"
 #PARSE_RSS_CMD = "xsltproc parse_title.xsl "
 XSLT_PARSE = HOME_DIR + "/parse_title.xsl"

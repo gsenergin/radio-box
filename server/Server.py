@@ -35,7 +35,7 @@ threads list :
 '''
 from TitleMonitor import *
 from FrontEndWatchdog import *
-from StreamHandler import *
+from MediaPlayer import *
 from PodcastManager import *
 from FileBrowser import *
 from RadioPlayer import *
@@ -150,7 +150,7 @@ class RadioBoxServer:
 				reply.extend(self.scroll_position_to_cmd(self.current_episode, len(self.podcast_manager.channels[self.current_channel].episodes)))
 			elif self.mode == "podcast.episode.playing":
 				#seek forward
-				#self.streamHandler.seek(10)
+				#self.mediaPlayer.seek(10)
 				pass
 			elif self.mode == "browser"\
 			or self.mode == "browser.play":
@@ -189,7 +189,7 @@ class RadioBoxServer:
 				reply.extend(self.scroll_position_to_cmd(self.current_episode, len(self.podcast_manager.channels[self.current_channel].episodes)))
 			elif self.mode == "podcast.episode.playing":
 				#seek backward
-				#self.streamHandler.seek(-10)
+				#self.mediaPlayer.seek(-10)
 				pass
 			elif self.mode == "browser"\
 			or self.mode == "browser.play":
@@ -213,14 +213,14 @@ class RadioBoxServer:
 				reply.extend(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode].to_cmd())
 				reply.extend(self.scroll_position_to_cmd(self.current_episode, len(self.podcast_manager.channels[self.current_channel].episodes)))
 			elif self.mode == "podcast.episode":
-				#self.streamHandler.play_episode(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode])
-				self.streamHandler.updateAddr(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode].url)
+				#self.mediaPlayer.play_episode(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode])
+				self.mediaPlayer.updateAddr(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode].url)
 				self.mode = "podcast.episode.playing"
 			elif self.mode == "podcast.episode.playing":
-				self.streamHandler.pause()
+				self.mediaPlayer.pause()
 				self.mode = "podcast.episode.paused"
 			elif self.mode == "podcast.episode.paused":
-				self.streamHandler.resume()
+				self.mediaPlayer.resume()
 				self.mode = "podcast.episode.playing"
 			elif self.mode == "browser":
 				try:
@@ -230,14 +230,14 @@ class RadioBoxServer:
 				#print p
 				if os.path.isfile(p):
 					follow = self.file_browser.get_following_item_paths_of(l[1])
-					self.streamHandler.updateAddr(p, follow)
+					self.mediaPlayer.updateAddr(p, follow)
 					self.mode = "browser.play"
 				else:
 					self.file_browser.cd(p)
 					reply.extend(self.file_browser.getListWindow())
 					reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
 			elif self.mode == "browser.pause":
-				self.streamHandler.resume()
+				self.mediaPlayer.resume()
 			elif self.mode == "radio" or self.mode == "radio.resume":
 				self.pause_radio()
 				reply.extend("l:0:                  \x04\n")
@@ -253,7 +253,7 @@ class RadioBoxServer:
 				reply.extend(self.scroll_position_to_cmd(self.current_channel, len(self.podcast_manager.channels)))
 			elif self.mode == "podcast.episode.playing"\
 			or self.mode == "podcast.episode.paused":
-				self.streamHandler.updateAddr("")
+				self.mediaPlayer.updateAddr("")
 				self.mode = "podcast"
 				reply.extend(self.podcast_manager.channels[self.current_channel].to_cmd())
 				reply.extend(self.scroll_position_to_cmd(self.current_channel, len(self.podcast_manager.channels)))
@@ -265,7 +265,7 @@ class RadioBoxServer:
 				reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
 			elif self.mode == "browser.play":
 				self.mode = "browser.pause"
-				self.streamHandler.pause()
+				self.mediaPlayer.pause()
 			elif self.mode == "radio.pause" or self.mode == "radio.resume":
 				self.mode = "radio"
 				self.play_radio()
@@ -328,9 +328,9 @@ class RadioBoxServer:
 			#podcast manager
 			self.podcast_manager = PodcastManager()
 			self.podcast_manager.start()
-			#streamHandler
-			self.streamHandler = StreamHandler()
-			self.streamHandler.start()
+			#mediaPlayer
+			self.mediaPlayer = MediaPlayer()
+			self.mediaPlayer.start()
 			#file browser
 			self.file_browser = FileBrowser()
 			#while client is connected, this loop is main
@@ -364,7 +364,7 @@ class RadioBoxServer:
 			self.title_monitor.stop()
 			self.radioPlayer.stop()
 			self.podcast_manager.stop()
-			self.streamHandler.terminate()
+			self.mediaPlayer.terminate()
 		s.close()
 
 
