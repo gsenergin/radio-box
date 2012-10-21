@@ -14,7 +14,6 @@ class MediaPlayer(threading.Thread):
 	def __init__(self):
 		threading.Thread.__init__(self)
 		self.worker = StreamWorker()
-		self.last_addr = ""
 
 	def run(self):
 		self.shouldRun = True
@@ -26,10 +25,7 @@ class MediaPlayer(threading.Thread):
 				self.worker.stop()
 				self.worker = StreamWorker()
 				self.worker.start()
-				time.sleep(0.1)
-				self.updateAddr(self.last_addr)
-			else:
-				time.sleep(0.1)
+			time.sleep(0.1)
 
 	def updateAddr(self, newAddr, follow=[]):
 		self.worker.addrQ.put_nowait(newAddr)

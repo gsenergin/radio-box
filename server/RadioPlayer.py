@@ -1,11 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+#IDEA !! : dynamically increase REC_HEAD_MARGIN if an ERROR on appsrc feed is met ???!!
+
+
 BLOCK_SIZE = 4096
 #50 MB - around 1h for sing sing radio
 REC_MAX_ELEMENT = 50000000/BLOCK_SIZE
 #minimum distance between cursor and head
-REC_HEAD_MARGIN = 16
+REC_HEAD_MARGIN = 8#16 more safe but big delay when tune to a station
 REC_MIN_TAIL_DISTANCE = 100
 #buff to rewind before resuming to avoid lossing sound (pre-roll, start mute)
 RESUME_REWIND = 6
@@ -165,7 +168,7 @@ class Worker(threading.Thread):
 	def run(self):
 		self.shouldRun = True
 		print "worker start"
-		self.radioPlayer.goLive()
+		#self.radioPlayer.goLive()
 		#main loop : process commands, delete old buff
 		while self.shouldRun:
 			self.timestamp = time.time()

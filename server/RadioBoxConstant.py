@@ -10,7 +10,7 @@ RADIO_STATION_LIST = HOME_DIR + "/live_radio.list"
 #PARSE_RSS_CMD = "xsltproc parse_title.xsl "
 XSLT_PARSE = HOME_DIR + "/parse_title.xsl"
 EPISODE_CACHE_FILE_NAME = "episode.list"
-MAX_EPISODE_PER_CHANNEL = 50
+MAX_EPISODE_PER_CHANNEL = 50 #deprecated
 LOG_PATH = HOME_DIR + "/log.txt"
 BROWSER_HOME_DIR = "/home/bastien/Music/"
 
