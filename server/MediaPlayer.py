@@ -3,10 +3,10 @@ from Queue import Queue, Empty
 from RadioBoxConstant import *
 import os
 
-#import pygtk, gtk, gobject
+import pygtk, gtk, gobject
 import pygst
 pygst.require("0.10")
-import gobject
+#import gobject
 gobject.threads_init() 
 import gst
 
@@ -65,10 +65,12 @@ class StreamWorker(threading.Thread):
 	def stop(self):
 		self.shouldRun = False
 
-	#def bus_msg_handler(self, bus, msg, data):
-	def on_message(self, bus, msg):
-		print "########### RECV MESSAGE FROM BUS"
-		print msg
+	def bus_msg_handler(self, bus, msg):
+		if msg.type == gst.MESSAGE_EOS and len(self.follow) > 0:
+			print "playing next track in list"
+			self.addrQ.put_nowait(self.follow.pop(0))
+		return True
+		
 
 	def run(self):
 		self.shouldRun = True
@@ -78,17 +80,12 @@ class StreamWorker(threading.Thread):
 		buff_l = []
 		sink = None
 		source = None
+		#start a gobject main loop to catch end of track event
+		loop = gobject.MainLoop()
+		t = threading.Thread(target=loop.run)
+		t.start()
 		while self.shouldRun:
 			self.timestamp = time.time()
-			'''t, s, r = gst_player.get_state()
-			if s != gst.STATE_PLAYING and len(self.follow) > 0:
-				#play next file
-				#print s
-				#if len(self.follow) > 0\ 
-				if time.time() - start_track_timestamp > 10:
-					e = self.follow.pop(0)
-					print "play next ", e
-					self.addrQ.put_nowait(e)'''
 			if not self.addrQ.empty():
 				#TODO only take last in list
 				#set player
@@ -102,20 +99,13 @@ class StreamWorker(threading.Thread):
 					else:#(string.split(url, "://")[0] == "http"):
 						#http, local file, etc...
 						source_engine = "gnomevfssrc location=\"" + url + "\""
-					'''else:
-						#local file
-						source_engine = "filesrc location=\"" + url + "\""'''
 					gst_player = gst.parse_launch(source_engine+" ! decodebin2 ! audioresample ! pulsesink")
 					bus = gst_player.get_bus()
-					#bus.add_watch(self.bus_msg_handler)
-					bus.add_signal_watch()
-					bus.connect("message", self.on_message)
-
+					bus.add_watch(self.bus_msg_handler)
 					gst_player.set_state(gst.STATE_PLAYING)
 					self.timestamp = time.time()
 					start_track_timestamp = time.time()
 					print "started new track"
-
 				else:
 					gst_player.set_state(gst.STATE_NULL)
 			elif not self.cmdQ.empty():
@@ -151,5 +141,7 @@ class StreamWorker(threading.Thread):
 				time.sleep(0.1)
 				#print gst_player.get_state()
 		gst_player.set_state(gst.STATE_NULL)
+		#exit gobject main loop
+		loop.quit()
 
 
