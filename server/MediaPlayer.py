@@ -24,7 +24,7 @@ class MediaPlayer(threading.Thread):
 				self.worker.stop()
 				self.worker = StreamWorker()
 				self.worker.start()
-			time.sleep(0.1)
+			time.sleep(1.0)
 
 	def updateAddr(self, newAddr, follow=[]):
 		self.worker.addrQ.put_nowait(newAddr)

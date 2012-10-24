@@ -134,7 +134,7 @@ class RadioPlayer(threading.Thread):
 				self.worker.stop()
 				self.worker = Worker(self)
 				self.worker.start()
-			time.sleep(0.1)
+			time.sleep(1.0)
 		self.worker.stop()
 		self.inPipe.set_state(gst.STATE_NULL)
 		self.outPipe.set_state(gst.STATE_NULL)

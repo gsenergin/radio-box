@@ -43,7 +43,7 @@ class TitleMonitor(threading.Thread):
 					self.url = ""
 					last_title = ""
 					self.q.put_nowait("")
-					time.sleep(0.01)
+					time.sleep(0.1)
 					continue
 			if self.url != "" and (time.time() - reload_timestamp) > RELOAD_TIMEOUT:
 				reload_timestamp = time.time()
@@ -102,7 +102,7 @@ class TitleMonitor(threading.Thread):
 						pass
 			else:
 				#no url set
-				time.sleep(0.01)
+				time.sleep(1.0)
 		if u != None:
 			u.close()
 		print "end TM"

@@ -49,7 +49,7 @@ class PodcastManager(threading.Thread):
 					print "Error while downloading episode"
 					print e
 			else:
-				time.sleep(0.1)
+				time.sleep(0.5)
 			#break
 
 	def stop(self):

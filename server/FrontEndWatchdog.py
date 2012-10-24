@@ -19,7 +19,8 @@ class Watchdog(threading.Thread):
 			q.put(p.stdout.readline())
 
 	def run(self):
-		p = Popen(["ping", "-A", "192.168.1.69"], stdout=PIPE)
+		#p = Popen(["ping", "-A", "192.168.1.69"], stdout=PIPE)
+		p = Popen(["ping", "-i 0.5", "192.168.1.69"], stdout=PIPE)
 		q = Queue()
 		worker = Thread(target=Watchdog.read_pipe, args=(self, q, p))
 		worker.start()
@@ -27,6 +28,7 @@ class Watchdog(threading.Thread):
 		while self.shouldRun:
 			if time.time() - echo_timestamp > ECHO_TIMEOUT:
 				#no echo for too long, close the connection
+				#time.sleep(30)
 				print "no echo from front end for too long ", time.time() - echo_timestamp
 				self.shouldRun = False
 				break;
