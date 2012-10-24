@@ -22,7 +22,6 @@ _ inPipeSink.emit('pull-buffer') is blocking.
 import threading, time, string
 from Queue import Queue, Empty
 
-#import pygtk, gtk, gobject
 import pygst
 pygst.require("0.10")
 #without GstPipe gives : segmentation fault
@@ -88,7 +87,7 @@ class RadioPlayer(threading.Thread):
 
 	'''called by outPipe appsrc when it needs data'''
 	def feed_appsrc(self, a, b):
-		#print '    0000 >>>    ', time.time()
+		print '    0000 >>>    ', time.time()
 		#self.seekLock.acquire()
 		while self.cursor.reset and  self.cursor.next != None:
 			self.cursor = self.cursor.next
@@ -104,8 +103,13 @@ class RadioPlayer(threading.Thread):
 
 	'''called by inPipe appsink when a buff is ready'''
 	def fetch_appsink(self, sink):
-		#print '>>> 0000        ', time.time()
+		print '>>> 0000        ', time.time()
 		buff = self.inPipeSink.emit('pull-buffer')
+		#print "__________________________________________"
+		#print dir(buff)
+		#print buff.offset
+		#print buff.timestamp
+		#time.sleep(10.0)
 		#this is needed to workaround assertion which does not allow stream to start at offset 0
 		buff.offset = 0
 		self.H = StreamElement(buff, self.H)

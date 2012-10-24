@@ -1,6 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+#TODO
+#_ pause/play no work with mms://. When resume, one buff is taken, then nothing...
+
 '''
 ## Radio Box Simple Control protocol v0.1 ##
 each command is sent in the format : "cmd[;data]\n"
@@ -66,6 +69,9 @@ class RadioBoxServer:
 		self.current_station = 0;
 		self.radio_list = []
 		for line in fileinput.input(RADIO_STATION_LIST):
+			if line[0] == '#' or len(line) == 0:
+				#ignore this line
+				continue
 			#add (tag, url) tuple to list (without trailing \n)
 			self.radio_list.append(tuple(string.split(line[:-1], " :: ", 1)))
 		fileinput.close()
@@ -80,6 +86,8 @@ class RadioBoxServer:
 	''' Play the selected radio station
 	play live (last available data'''
 	def play_radio(self):
+		#pause any playing media
+		self.mediaPlayer.updateAddr("")
 		#TitleMonitor fetch title of current program
 		#update current radio station
 		self.title_monitor.update_name(self.radio_list[self.current_station][0])
@@ -158,6 +166,7 @@ class RadioBoxServer:
 				reply.extend(self.file_browser.getListWindow())
 				reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
 			elif self.mode == "radio.pause" or self.mode == "radio.resume":
+				reply.extend("l:0:                  \x04\n")
 				self.radioPlayer.seek(50)
 				self.mode = "radio.pause"
 		elif l[0] == "p":
@@ -197,6 +206,7 @@ class RadioBoxServer:
 				reply.extend(self.file_browser.getListWindow())
 				reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
 			elif self.mode == "radio.pause" or self.mode == "radio.resume":
+				reply.extend("l:0:                  \x04\n")
 				self.radioPlayer.seek(-50)
 				self.mode = "radio.pause"
 		elif l[0] == "podcast":

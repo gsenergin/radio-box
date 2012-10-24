@@ -3,10 +3,9 @@ from Queue import Queue, Empty
 from RadioBoxConstant import *
 import os
 
-import pygtk, gtk, gobject
 import pygst
 pygst.require("0.10")
-#import gobject
+import gobject
 gobject.threads_init() 
 import gst
 
