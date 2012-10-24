@@ -210,6 +210,10 @@ class RadioBoxServer:
 				self.radioPlayer.seek(-50)
 				self.mode = "radio.pause"
 		elif l[0] == "podcast":
+			#ignore if already in podact mode
+			#avoids to reload podcat when going from non-used mode back to podcast
+			if self.mode == "podcast":
+				return 1
 			self.mode = "podcast"
 			self.current_episode = 0
 			self.stop_radio()
@@ -280,6 +284,10 @@ class RadioBoxServer:
 				self.play_radio()
 				reply.extend("l:0:                   \n")
 		elif l[0] == "browser":
+			#ignore if already in browser mode
+			#avoids to reload browser when going from non-used mode back to browser
+			if self.mode == "browser":
+				return 1
 			self.mode = "browser"
 			self.stop_radio()
 			reply.extend(self.file_browser.getListWindow())

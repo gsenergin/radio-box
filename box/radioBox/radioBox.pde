@@ -51,6 +51,7 @@ unsigned int scroll_max;
 short int select_ind;
 short int select_ind_last;
 boolean browser_mode = false;
+boolean podcast_mode = false;
 short int path_mem[10];
 unsigned char path_mem_ind = 0;
 
@@ -324,18 +325,33 @@ void process_switches(bool is_init){
       if (right_switch == HIGH){
         start_radio();
         browser_mode = false;
+        podcast_mode = false;
+        Wifly::write("debug 0\n");
       }else{
-        start_podcast();
-        browser_mode = false;
+        //do not relaod podcast if already in podcast mode
+        if (!podcast_mode){
+          start_podcast();
+          browser_mode = false;
+          podcast_mode = true;
+          Wifly::write("debug 1\n");
+        }
       }
     }else{
       if (right_switch == HIGH){
-        start_browser();
-        browser_mode = true;
+        //do not relaod browser mode is already in this mode
+        if (!browser_mode){
+          start_browser();
+          podcast_mode = false;
+          browser_mode = true;
+          Wifly::write("debug 2\n");
+        }
       }else{
-        browser_mode = false;
+        //browser_mode = false;
+        Wifly::write("debug 3\n");
       }
     }
+    //avoid some back and forth switching of mode due to transition
+    delay(10);
   }
 }
 

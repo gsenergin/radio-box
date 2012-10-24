@@ -87,7 +87,7 @@ class RadioPlayer(threading.Thread):
 
 	'''called by outPipe appsrc when it needs data'''
 	def feed_appsrc(self, a, b):
-		print '    0000 >>>    ', time.time()
+		#print '    0000 >>>    ', time.time()
 		#self.seekLock.acquire()
 		while self.cursor.reset and  self.cursor.next != None:
 			self.cursor = self.cursor.next
@@ -103,7 +103,7 @@ class RadioPlayer(threading.Thread):
 
 	'''called by inPipe appsink when a buff is ready'''
 	def fetch_appsink(self, sink):
-		print '>>> 0000        ', time.time()
+		#print '>>> 0000        ', time.time()
 		buff = self.inPipeSink.emit('pull-buffer')
 		#print "__________________________________________"
 		#print dir(buff)
