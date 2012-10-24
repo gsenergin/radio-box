@@ -402,16 +402,39 @@ void update_select_cursor(){
   }
 }
 
-int x=0, y=0;
-int tmp_int;
-void loop() {
-  //read and process messages received from server
-  receive_messages();
-  process_rotary_enc();
-  /*while (process_rotary_enc()){
-    delay(50);
-  }*/
-  process_switches(false);
+void process_buttons(){
+  int tmp0, tmp1;
+  tmp0 = digitalRead(yellow_button_pin);
+  tmp1 = digitalRead(black_button_pin);
+  boolean yellow_pressed = false, black_pressed = false;
+  while (tmp0 == LOW || tmp1 == LOW){
+    if (tmp0 == LOW){
+      yellow_pressed = true;
+    }
+    if (tmp1 == LOW){
+      black_pressed = true;
+    }
+    delay(10);
+    tmp0 = digitalRead(yellow_button_pin);
+    tmp1 = digitalRead(black_button_pin);
+  }
+  
+  if (yellow_pressed && black_pressed){
+    Wifly::write("both\n");
+  }else if (yellow_pressed){
+    if (browser_mode){
+      Wifly::write("select:");
+      Wifly::write(String(select_ind));
+      Wifly::write("\n");
+    }else{
+      Wifly::write("select\n");
+    }
+  }else if (black_pressed){
+    Wifly::write("back\n");
+  }
+  
+  
+  /*
   //read yellow button
   tmp_int = digitalRead(yellow_button_pin);
   boolean was_pressed = false;
@@ -439,8 +462,18 @@ void loop() {
   }
   if (was_pressed){
     Wifly::write("back\n");
-  }
+  }*/
+}
 
+void loop() {
+  //read and process messages received from server
+  receive_messages();
+  process_rotary_enc();
+  /*while (process_rotary_enc()){
+    delay(50);
+  }*/
+  process_switches(false);
+  process_buttons();
   //update cursor
   update_select_cursor();
 }

@@ -51,7 +51,10 @@ class MediaPlayer(threading.Thread):
 			pass
 		else:
 			e.download()
-		
+
+	def isPlaying(self):
+		a, state, b = self.worker.gst_player.get_state()
+		return state == gst.STATE_PLAYING
 	
 #TODO timestamp, to be checked to conclude if stream player is frozen
 class StreamWorker(threading.Thread):
@@ -60,6 +63,7 @@ class StreamWorker(threading.Thread):
 		self.addrQ = Queue()
 		self.cmdQ = Queue()
 		self.follow = []
+		self.gst_player = gst.Pipeline("player")
 
 	def stop(self):
 		self.shouldRun = False
@@ -67,13 +71,16 @@ class StreamWorker(threading.Thread):
 	def bus_msg_handler(self, bus, msg):
 		if msg.type == gst.MESSAGE_EOS and len(self.follow) > 0:
 			print "playing next track in list"
-			self.addrQ.put_nowait(self.follow.pop(0))
+			if len(self.follow) == 0:
+				#state does not update by itself
+				self.gst_player.set_state(gst.STATE_NULL)
+			else:
+				self.addrQ.put_nowait(self.follow.pop(0))
 		return True
 		
 
 	def run(self):
 		self.shouldRun = True
-		gst_player = gst.Pipeline("player")
 		self.timestamp = time.time()
 		start_track_timestamp = time.time()
 		buff_l = []
@@ -91,22 +98,22 @@ class StreamWorker(threading.Thread):
 				url = self.addrQ.get_nowait()
 				#if address is empty, no radio are played
 				if not len(url) == 0:
-					gst_player.set_state(gst.STATE_NULL)
+					self.gst_player.set_state(gst.STATE_NULL)
 					source_engine = ""
 					if (string.split(url, "://")[0] == "mms"):
 						source_engine = "mmssrc location=\"" + url + "\""
 					else:#(string.split(url, "://")[0] == "http"):
 						#http, local file, etc...
 						source_engine = "gnomevfssrc location=\"" + url + "\""
-					gst_player = gst.parse_launch(source_engine+" ! decodebin2 ! audioresample ! pulsesink")
-					bus = gst_player.get_bus()
+					self.gst_player = gst.parse_launch(source_engine+" ! decodebin2 ! audioresample ! pulsesink")
+					bus = self.gst_player.get_bus()
 					bus.add_watch(self.bus_msg_handler)
-					gst_player.set_state(gst.STATE_PLAYING)
+					self.gst_player.set_state(gst.STATE_PLAYING)
 					self.timestamp = time.time()
 					start_track_timestamp = time.time()
 					print "started new track"
 				else:
-					gst_player.set_state(gst.STATE_NULL)
+					self.gst_player.set_state(gst.STATE_NULL)
 			elif not self.cmdQ.empty():
 				cmd = self.cmdQ.get_nowait()
 				a = cmd.split(":")
@@ -118,28 +125,28 @@ class StreamWorker(threading.Thread):
 				print "SH cmd ", cmd
 				print data
 				if cmd == "PAUSE":
-					gst_player.set_state(gst.STATE_PAUSED)
+					self.gst_player.set_state(gst.STATE_PAUSED)
 					print "pause player"
 				elif cmd == "RESUME":
-					gst_player.set_state(gst.STATE_PLAYING)
+					self.gst_player.set_state(gst.STATE_PLAYING)
 					print "resume player"
 				elif cmd == "SEEK":
-					pos = gst_player.query_position(gst.FORMAT_TIME, None)[0]
+					pos = self.gst_player.query_position(gst.FORMAT_TIME, None)[0]
 					print "current ", pos
-					duration = gst_player.query_duration(gst.FORMAT_TIME, None)[0]
+					duration = self.gst_player.query_duration(gst.FORMAT_TIME, None)[0]
 					print "duration ", duration
 					pos += int(data)*gst.SECOND
 					if pos > duration:
 						pos = duration
 					if pos < 0:
 						pos = 0
-					gst_player.seek_simple(gst.FORMAT_TIME, gst.SEEK_FLAG_FLUSH, pos)
+					self.gst_player.seek_simple(gst.FORMAT_TIME, gst.SEEK_FLAG_FLUSH, pos)
 					#avoids loosing playout
 					time.sleep(0.1)
 			else:
 				time.sleep(0.1)
-				#print gst_player.get_state()
-		gst_player.set_state(gst.STATE_NULL)
+				#print self.gst_player.get_state()
+		self.gst_player.set_state(gst.STATE_NULL)
 		#exit gobject main loop
 		loop.quit()
 

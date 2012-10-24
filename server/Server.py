@@ -1,8 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-#TODO
-#_ pause/play no work with mms://. When resume, one buff is taken, then nothing...
+#TODO pause/play no work with mms://. When resume, one buff is taken, then nothing...
 
 '''
 ## Radio Box Simple Control protocol v0.1 ##
@@ -160,8 +159,7 @@ class RadioBoxServer:
 				#seek forward
 				#self.mediaPlayer.seek(10)
 				pass
-			elif self.mode == "browser"\
-			or self.mode == "browser.play":
+			elif self.mode == "browser" or self.mode == "browser.play":
 				self.file_browser.next()
 				reply.extend(self.file_browser.getListWindow())
 				reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
@@ -200,8 +198,7 @@ class RadioBoxServer:
 				#seek backward
 				#self.mediaPlayer.seek(-10)
 				pass
-			elif self.mode == "browser"\
-			or self.mode == "browser.play":
+			elif self.mode == "browser" or self.mode == "browser.play":
 				self.file_browser.prev()
 				reply.extend(self.file_browser.getListWindow())
 				reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
@@ -236,7 +233,7 @@ class RadioBoxServer:
 			elif self.mode == "podcast.episode.paused":
 				self.mediaPlayer.resume()
 				self.mode = "podcast.episode.playing"
-			elif self.mode == "browser":
+			elif self.mode == "browser" or self.mode == "browser.play":
 				try:
 					p = self.file_browser.get_item_path_at(l[1])
 				except:
@@ -245,13 +242,11 @@ class RadioBoxServer:
 				if os.path.isfile(p):
 					follow = self.file_browser.get_following_item_paths_of(l[1])
 					self.mediaPlayer.updateAddr(p, follow)
-					#self.mode = "browser.play"
+					self.mode = "browser.play"
 				else:
 					self.file_browser.cd(p)
 					reply.extend(self.file_browser.getListWindow())
 					reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
-				'''elif self.mode == "browser.pause":
-				self.mediaPlayer.resume()'''
 			elif self.mode == "radio" or self.mode == "radio.resume":
 				self.pause_radio()
 				reply.extend("l:0:                  \x04\n")
@@ -271,14 +266,10 @@ class RadioBoxServer:
 				self.mode = "podcast"
 				reply.extend(self.podcast_manager.channels[self.current_channel].to_cmd())
 				reply.extend(self.scroll_position_to_cmd(self.current_channel, len(self.podcast_manager.channels)))
-			elif self.mode == "browser":#or self.mode == "browser.pause":
-				self.mode = "browser"
+			elif self.mode == "browser" or self.mode == "browser.play":
 				self.file_browser.up()
 				reply.extend(self.file_browser.getListWindow())
 				reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
-				'''elif self.mode == "browser.play":
-				self.mode = "browser.pause"
-				self.mediaPlayer.pause()'''
 			elif self.mode == "radio.pause" or self.mode == "radio.resume":
 				self.mode = "radio"
 				self.play_radio()
@@ -286,13 +277,20 @@ class RadioBoxServer:
 		elif l[0] == "browser":
 			#ignore if already in browser mode
 			#avoids to reload browser when going from non-used mode back to browser
-			if self.mode == "browser":
+			if self.mediaPlayer.isPlaying():
 				return 1
 			self.mode = "browser"
 			self.stop_radio()
 			reply.extend(self.file_browser.getListWindow())
 			reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
-
+		elif l[0] == "both":
+			if self.mode == "browser.play":
+				self.mode = "browser"
+				self.mediaPlayer.pause()
+			elif self.mode == "browser":
+				self.mode = "browser.play"
+				self.mediaPlayer.resume()
+		### send reply
 		if len(reply) != 0:
 			#remove french char
 			reply = replace_non_ascii("".join(reply))
