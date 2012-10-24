@@ -326,14 +326,14 @@ void process_switches(bool is_init){
         start_radio();
         browser_mode = false;
         podcast_mode = false;
-        Wifly::write("debug 0\n");
+        //Wifly::write("debug 0\n");
       }else{
         //do not relaod podcast if already in podcast mode
         if (!podcast_mode){
           start_podcast();
           browser_mode = false;
           podcast_mode = true;
-          Wifly::write("debug 1\n");
+          //Wifly::write("debug 1\n");
         }
       }
     }else{
@@ -343,15 +343,17 @@ void process_switches(bool is_init){
           start_browser();
           podcast_mode = false;
           browser_mode = true;
-          Wifly::write("debug 2\n");
+          //Wifly::write("debug 2\n");
         }
       }else{
         //browser_mode = false;
-        Wifly::write("debug 3\n");
+        //Wifly::write("debug 3\n");
+        //avoid detecting transition twice
+        delay(100);
       }
     }
     //avoid some back and forth switching of mode due to transition
-    delay(10);
+    delay(100);
   }
 }
 
@@ -432,37 +434,6 @@ void process_buttons(){
   }else if (black_pressed){
     Wifly::write("back\n");
   }
-  
-  
-  /*
-  //read yellow button
-  tmp_int = digitalRead(yellow_button_pin);
-  boolean was_pressed = false;
-  while (tmp_int == LOW){
-     was_pressed = true;
-    delay(10);
-    tmp_int = digitalRead(yellow_button_pin);
-  }
-  if (was_pressed){
-    if (browser_mode){
-      Wifly::write("select:");
-      Wifly::write(String(select_ind));
-      Wifly::write("\n");
-    }else{
-      Wifly::write("select\n");
-    }
-  }
-  //read black button
-  tmp_int = digitalRead(black_button_pin);
-  was_pressed = false;
-  while (tmp_int == LOW){
-    was_pressed = true;
-    delay(10);
-    tmp_int = digitalRead(black_button_pin);
-  }
-  if (was_pressed){
-    Wifly::write("back\n");
-  }*/
 }
 
 void loop() {

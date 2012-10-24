@@ -207,10 +207,7 @@ class RadioBoxServer:
 				self.radioPlayer.seek(-50)
 				self.mode = "radio.pause"
 		elif l[0] == "podcast":
-			#ignore if already in podact mode
-			#avoids to reload podcat when going from non-used mode back to podcast
-			if self.mode == "podcast":
-				return 1
+			#self.mediaPlayer.updateAddr("")
 			self.mode = "podcast"
 			self.current_episode = 0
 			self.stop_radio()
@@ -275,10 +272,6 @@ class RadioBoxServer:
 				self.play_radio()
 				reply.extend("l:0:                   \n")
 		elif l[0] == "browser":
-			#ignore if already in browser mode
-			#avoids to reload browser when going from non-used mode back to browser
-			if self.mediaPlayer.isPlaying():
-				return 1
 			self.mode = "browser"
 			self.stop_radio()
 			reply.extend(self.file_browser.getListWindow())
@@ -290,6 +283,13 @@ class RadioBoxServer:
 			elif self.mode == "browser":
 				self.mode = "browser.play"
 				self.mediaPlayer.resume()
+			if self.mode == "podcast.episode.playing":
+				self.mode = "podcast.episode.paused"
+				self.mediaPlayer.pause()
+			elif self.mode == "podcast.episode.paused":
+				self.mode = "podcast.episode.playing"
+				self.mediaPlayer.resume()
+
 		### send reply
 		if len(reply) != 0:
 			#remove french char
