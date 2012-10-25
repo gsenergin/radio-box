@@ -320,6 +320,8 @@ class RadioBoxServer:
 		s.bind((HOST, PORT))
 		s.listen(1)
 		self.titleQ = Queue()
+		#file browser
+		self.file_browser = FileBrowser()
 		while True:
 			try :
 				#wait for incoming connection
@@ -345,8 +347,6 @@ class RadioBoxServer:
 			#mediaPlayer
 			self.mediaPlayer = MediaPlayer()
 			self.mediaPlayer.start()
-			#file browser
-			self.file_browser = FileBrowser()
 			#while client is connected, this loop is main
 			while dog.shouldRun:
 				#update title of currentely running program

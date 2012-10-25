@@ -14,7 +14,7 @@ MAX_EPISODE_PER_CHANNEL = 50 #deprecated
 LOG_PATH = HOME_DIR + "/log.txt"
 BROWSER_HOME_DIR = "/home/bastien/Music/"
 
-PLAYER_INACTIVE_TIMEOUT = 20.0
+PLAYER_INACTIVE_TIMEOUT = 10.0
 
 ALLOWED_FILE_EXT = ["mp3", "ogg", "wav", "flac", "wma"]
 
