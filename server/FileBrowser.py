@@ -9,6 +9,7 @@ class FileBrowser:
 		self.current_dir = BROWSER_HOME_DIR
 		self.l = self.ls()
 		self.ind = 0;
+		self.ind_stack = []
 
 	def cd(self, path):
 		tmp = []
@@ -16,6 +17,7 @@ class FileBrowser:
 			tmp = self.ls(path)
 			self.l = tmp
 			self.current_dir = path + "/"
+			self.ind_stack.append(self.ind)
 			self.ind = 0;
 			return True
 		except:
@@ -23,14 +25,14 @@ class FileBrowser:
 			return False
 
 	def up(self):
-		print "before up : ", self.current_dir
+		#print "before up : ", self.current_dir
 		if self.current_dir != BROWSER_HOME_DIR:
 			l = self.current_dir.split("/")
+			#last element l[-1] == ""
 			l.pop(-2)
 			self.current_dir = "/".join(l)
 			self.l = self.ls()
-		self.ind = 0;
-		print "after up : ", self.current_dir
+			self.ind = self.ind_stack.pop()
 
 	def ls(self, path=""):
 		if path == "":
