@@ -92,7 +92,8 @@ class FileBrowser:
 	def prev(self):
 		self.ind -= 4
 		if self.ind < 0:
-			self.ind = (len(self.l) + self.ind) + (len(self.l) + self.ind)%4
+			#self.ind = (len(self.l) + self.ind) + (len(self.l) + self.ind)%4
+			self.ind = (len(self.l) - 1)/4*4
 
 	def get_item_path_at(self, index):
 		return self.current_dir + self.l[self.ind + int(index)]
