@@ -313,6 +313,18 @@ class RadioBoxServer:
 			except:
 				return 0
 
+	def update_box_cursor_pos(self, cmd, conn):
+		#only relevant in browser mode
+		msg = []
+		msg.append("cursor:")
+		msg.append(cmd)
+		msg.append('\n')
+		#print msg
+		try:
+			conn.send("".join(msg))
+		except:
+			return 0
+
 	def run(self):
 		#open socket, listen to port
 		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -322,6 +334,8 @@ class RadioBoxServer:
 		self.titleQ = Queue()
 		#file browser
 		self.file_browser = FileBrowser()
+		#used to update box on currently played track
+		self.playerFeedbackQ = Queue()
 		while True:
 			try :
 				#wait for incoming connection
@@ -345,13 +359,16 @@ class RadioBoxServer:
 			self.podcast_manager = PodcastManager()
 			self.podcast_manager.start()
 			#mediaPlayer
-			self.mediaPlayer = MediaPlayer()
+			self.mediaPlayer = MediaPlayer(self.playerFeedbackQ)
 			self.mediaPlayer.start()
 			#while client is connected, this loop is main
 			while dog.shouldRun:
 				#update title of currentely running program
 				if not self.titleQ.empty():
 					self.send_title_update(self.titleQ.get_nowait(), conn)
+				#update file browser cursor position
+				if not self.playerFeedbackQ.empty():
+					self.update_box_cursor_pos(self.playerFeedbackQ.get_nowait(), conn)
 				#process data received from client (non blocking)
 				try:
 					data.append(conn.recv(BUFFER_SIZE))

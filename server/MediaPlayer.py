@@ -10,9 +10,10 @@ gobject.threads_init()
 import gst
 
 class MediaPlayer(threading.Thread):
-	def __init__(self):
+	def __init__(self, feedbackQ):
 		threading.Thread.__init__(self)
-		self.worker = StreamWorker()
+		self.worker = StreamWorker(self)
+		self.feedbackQ = feedbackQ
 
 	def run(self):
 		self.shouldRun = True
@@ -22,7 +23,7 @@ class MediaPlayer(threading.Thread):
 			if not self.worker.isAlive() or (time.time() - self.worker.timestamp > PLAYER_INACTIVE_TIMEOUT):
 				print "re-spawn player - dead or frozen"
 				self.worker.stop()
-				self.worker = StreamWorker()
+				self.worker = StreamWorker(self)
 				self.worker.start()
 			time.sleep(1.0)
 
@@ -58,12 +59,13 @@ class MediaPlayer(threading.Thread):
 	
 #TODO timestamp, to be checked to conclude if stream player is frozen
 class StreamWorker(threading.Thread):
-	def __init__(self):
+	def __init__(self, root):
 		threading.Thread.__init__(self)
 		self.addrQ = Queue()
 		self.cmdQ = Queue()
 		self.follow = []
 		self.gst_player = gst.Pipeline("player")
+		self.root = root
 
 	def stop(self):
 		self.shouldRun = False
@@ -76,6 +78,8 @@ class StreamWorker(threading.Thread):
 				self.gst_player.set_state(gst.STATE_NULL)
 			else:
 				self.addrQ.put_nowait(self.follow.pop(0))
+				#update box cursor display
+				self.root.feedbackQ.put_nowait("next")
 		return True
 		
 

@@ -9,19 +9,14 @@
 LiquidCrystal_I2C lcd(0x27,20,4);
 #define LCD_EMPTY_LINE "                    "
 //pause char
-//uint8_t pause_hex[8]  = {0x0,0x1b,0x1b,0x1b,0x1b,0x1b,0x1b,0x0};
 uint8_t pause_hex[8]  = {B00000, B11011, B11011, B11011, B11011, B11011, B11011, B00000};
 const int pause_char = 4;
 //play char
 uint8_t play_hex[8]  = {0x0,0x8,0xc,0xe,0xf,0xe,0xc,0x8};
 const int play_char = 1;
 //select char
-//uint8_t select[8]  = {0x0,0x10,0x18,0xf,0xf,0x18,0x10,0x0};
 uint8_t select_hex[8]  = {0x0,0x00,0x18,0x1e,0x1e,0x18,0x00,0x0};
 const int select_char = 2;
-//////////////////////////////:
-byte radio_rec_hex[8] = {B00100, B01100, B11111, B01101, B00101, B00001, B00001, B11111};
-const int radio_rec_char = 3;
 
 //volt meter pwm output
 #define volt_m_pin 6
@@ -48,8 +43,8 @@ int black_button;
 
 unsigned int scroll_pos;
 unsigned int scroll_max;
-short int select_ind;
-short int select_ind_last;
+short int select_ind = -1;
+short int select_ind_last = -1;
 boolean browser_mode = false;
 boolean podcast_mode = false;
 short int path_mem[10];
@@ -68,6 +63,7 @@ int receive_messages(){
     String cmd = msg.substring(0, ind);
     String data = msg.substring(ind + 1);
     if (cmd.equals("r")){
+      //start a radio station
       int l = data.length();
       l = (20 - l) / 2;
       //empty line
@@ -84,6 +80,7 @@ int receive_messages(){
       lcd.setCursor(0, 3);
       lcd.print(LCD_EMPTY_LINE);
     }else if (cmd.equals("s")){
+      //scroll position
       int ind = data.indexOf("/");
       char buff[5];
       //position
@@ -97,6 +94,7 @@ int receive_messages(){
       //set volt meter
       analogWrite(volt_m_pin, scroll_pos*255/(scroll_max));
     }else if (cmd.equals("rt")){
+      //radio title
       //empty two last lines
       lcd.setCursor(0, 2);
       lcd.print(LCD_EMPTY_LINE);
@@ -176,11 +174,16 @@ int receive_messages(){
         cpt++;
       }
     }else if(cmd.equals("cursor")){
-      if (data.equals("next")){
+      //only consider next (not previous)
+      //as it does not play backward
+      /*if (data.equals("next")){
         select_ind ++;
-      }else{
-        select_ind --;
       }
+      //ask for next window if necessary (it's like turning rotary enc)
+      if (select_ind > 3){
+        select_ind = 0;
+        Wifly::write("n\n");
+      }*/
     }
     msg = Wifly::readline();
   }
@@ -235,7 +238,6 @@ void start_browser(){
      c += receive_messages();
   }
   select_ind = 3;
-  select_ind_last = -1;
 }
 
 String tmp;
@@ -248,7 +250,6 @@ void setup() {
   lcd.createChar(pause_char, pause_hex);
   lcd.createChar(play_char, play_hex);
   lcd.createChar(select_char, select_hex);
-  lcd.createChar(radio_rec_char, radio_rec_hex);
 
   //Wifly
   Wifly::init();
@@ -353,7 +354,7 @@ void process_switches(bool is_init){
       }
     }
     //avoid some back and forth switching of mode due to transition
-    delay(100);
+    delay(150);
   }
 }
 
@@ -445,7 +446,7 @@ void loop() {
   }*/
   process_switches(false);
   process_buttons();
-  //update cursor
+  //update cursor display
   update_select_cursor();
 }
 
