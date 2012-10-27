@@ -4,7 +4,7 @@ from threading import Thread
 from Queue import Queue, Empty
 
 #ping echo timeout in sec
-ECHO_TIMEOUT = 1.5#2.0
+ECHO_TIMEOUT = 2.0#1.5
 
 class Watchdog(threading.Thread):
 	def __init__(self):

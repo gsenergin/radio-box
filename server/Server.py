@@ -243,7 +243,7 @@ class RadioBoxServer:
 					p = self.file_browser.get_item_path_at(l[1])
 				except:
 					return 0
-				#print p
+				print p
 				if os.path.isfile(p):
 					follow = self.file_browser.get_following_item_paths_of(l[1])
 					self.mediaPlayer.updateAddr(p, follow)
@@ -253,7 +253,7 @@ class RadioBoxServer:
 					self.playing_now_ind = int(l[1]) + self.file_browser.getPos()
 					self.playing_now_ind_stack = list(self.file_browser.ind_stack)
 					self.playing_now_folder = self.file_browser.current_dir
-					print self.playing_now_folder, self.file_browser.current_dir
+					print self.playing_now_folder
 					self.playing_now = True
 				else:
 					self.file_browser.cd(p)
@@ -313,10 +313,13 @@ class RadioBoxServer:
 				print "!!!!!!!!!!!!!!!!!"
 				print self.playing_now_list
 				print self.playing_now_ind
+				self.file_browser.l = self.playing_now_list
 				div = int(self.playing_now_ind)/4*4
 				rest = int(self.playing_now_ind) % 4
 				self.file_browser.ind_stack = list(self.playing_now_ind_stack)
+				self.file_browser.ind = self.playing_now_ind - (self.playing_now_ind % 4)
 				self.file_browser.current_dir = self.playing_now_folder
+				print self.file_browser.current_dir
 				reply.extend(self.file_browser.getListWindow(l=self.playing_now_list, index=div))
 				reply.extend(self.scroll_position_to_cmd(self.playing_now_ind, len(self.playing_now_list)))
 				msg = []
