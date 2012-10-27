@@ -80,6 +80,12 @@ class RadioBoxServer:
 		self.current_episode = 0;
 		self.mode = ""
 		self.prev_next_ts = time.time()
+		#playing now
+		self.playing_now_list = []
+		self.playing_now_ind = 0
+		self.playing_now_ind_stack = []
+		self.playing_now_folder = ""
+		self.playing_now = False
 
 
 	''' Play the selected radio station
@@ -163,6 +169,7 @@ class RadioBoxServer:
 				self.file_browser.next()
 				reply.extend(self.file_browser.getListWindow())
 				reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
+				self.playing_now = False
 			elif self.mode == "radio.pause" or self.mode == "radio.resume":
 				reply.extend("l:0:                  \x04\n")
 				self.radioPlayer.seek(50)
@@ -202,6 +209,7 @@ class RadioBoxServer:
 				self.file_browser.prev()
 				reply.extend(self.file_browser.getListWindow())
 				reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
+				self.playing_now = False
 			elif self.mode == "radio.pause" or self.mode == "radio.resume":
 				reply.extend("l:0:                  \x04\n")
 				self.radioPlayer.seek(-50)
@@ -240,10 +248,18 @@ class RadioBoxServer:
 					follow = self.file_browser.get_following_item_paths_of(l[1])
 					self.mediaPlayer.updateAddr(p, follow)
 					self.mode = "browser.play"
+					#update play now
+					self.playing_now_list = self.file_browser.ls()
+					self.playing_now_ind = int(l[1]) + self.file_browser.getPos()
+					self.playing_now_ind_stack = list(self.file_browser.ind_stack)
+					self.playing_now_folder = self.file_browser.current_dir
+					print self.playing_now_folder, self.file_browser.current_dir
+					self.playing_now = True
 				else:
 					self.file_browser.cd(p)
 					reply.extend(self.file_browser.getListWindow())
 					reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
+					self.playing_now = False
 			elif self.mode == "radio" or self.mode == "radio.resume":
 				self.pause_radio()
 				reply.extend("l:0:                  \x04\n")
@@ -267,6 +283,7 @@ class RadioBoxServer:
 				self.file_browser.up()
 				reply.extend(self.file_browser.getListWindow())
 				reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
+				self.playing_now = False
 			elif self.mode == "radio.pause" or self.mode == "radio.resume":
 				self.mode = "radio"
 				self.play_radio()
@@ -276,6 +293,7 @@ class RadioBoxServer:
 			self.stop_radio()
 			reply.extend(self.file_browser.getListWindow())
 			reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
+			self.playing_now = False
 		elif l[0] == "both":
 			if self.mode == "browser.play":
 				self.mode = "browser"
@@ -289,12 +307,32 @@ class RadioBoxServer:
 			elif self.mode == "podcast.episode.paused":
 				self.mode = "podcast.episode.playing"
 				self.mediaPlayer.resume()
+		elif l[0] == "select_long":
+			if self.playing_now_folder != "":
+				self.playing_now = True
+				print "!!!!!!!!!!!!!!!!!"
+				print self.playing_now_list
+				print self.playing_now_ind
+				div = int(self.playing_now_ind)/4*4
+				rest = int(self.playing_now_ind) % 4
+				self.file_browser.ind_stack = list(self.playing_now_ind_stack)
+				self.file_browser.current_dir = self.playing_now_folder
+				reply.extend(self.file_browser.getListWindow(l=self.playing_now_list, index=div))
+				reply.extend(self.scroll_position_to_cmd(self.playing_now_ind, len(self.playing_now_list)))
+				msg = []
+				msg.append("cursor:")
+				msg.append(str(rest))
+				msg.append('\n')
+				reply.extend(msg)
+			else:
+				reply.extend(self.file_browser.getListWindow())
+				reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
 
 		### send reply
 		if len(reply) != 0:
 			#remove french char
 			reply = replace_non_ascii("".join(reply))
-			#print reply
+			print reply
 			try:
 				conn.send(reply)
 			except:
@@ -315,15 +353,18 @@ class RadioBoxServer:
 
 	def update_box_cursor_pos(self, cmd, conn):
 		#only relevant in browser mode
-		msg = []
-		msg.append("cursor:")
-		msg.append(cmd)
-		msg.append('\n')
-		#print msg
-		try:
-			conn.send("".join(msg))
-		except:
-			return 0
+		if self.playing_now:
+			msg = []
+			msg.append("cursor:")
+			msg.append(cmd)
+			msg.append('\n')
+			#only next is possible
+			self.playing_now_ind += 1
+			#print msg
+			try:
+				conn.send("".join(msg))
+			except:
+				return 0
 
 	def run(self):
 		#open socket, listen to port

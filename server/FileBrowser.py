@@ -53,25 +53,28 @@ class FileBrowser:
 		l.extend(files)
 		return l
 
-	def getListWindow(self):
-		l = []
-		i = self.ind
-		print "window", i, "/", len(self.l)
-		for i in range(self.ind, self.ind + 4):
-			if i >= len(self.l):
+	def getListWindow(self, l=None, index=None):
+		ret = []
+		if index == None:
+			index = self.ind
+		if l == None:
+			l = self.l
+		print "window", index, "/", len(l)
+		for i in range(index, index + 4):
+			if i >= len(l):
 				#add an empty line
-				l.append("l:"+str(i-self.ind)+":                   \n")
+				ret.append("l:"+str(i-index)+":                   \n")
 			else:
-				l.append("l:"+str(i-self.ind)+":")
-				tmp = self.l[i]
+				ret.append("l:"+str(i-index)+":")
+				tmp = l[i]
 				i += 1
 				if len(tmp) > 19:
-					l.append(tmp[:19])
+					ret.append(tmp[:19])
 				else:
-					l.append(tmp)
-				l.append("\n")
+					ret.append(tmp)
+				ret.append("\n")
 			
-		return "".join(l)
+		return "".join(ret)
 
 	def getPos(self):
 		return self.ind

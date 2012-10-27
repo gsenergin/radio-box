@@ -176,14 +176,19 @@ int receive_messages(){
     }else if(cmd.equals("cursor")){
       //only consider next (not previous)
       //as it does not play backward
-      /*if (data.equals("next")){
+      if (data.equals("next")){
         select_ind ++;
+      }else{
+        char tmp[10];
+        data.substring(0, 1).toCharArray(tmp, 10);
+        select_ind = atoi(tmp);
+        select_ind_last = - 1;
       }
       //ask for next window if necessary (it's like turning rotary enc)
       if (select_ind > 3){
         select_ind = 0;
         Wifly::write("n\n");
-      }*/
+      }
     }
     msg = Wifly::readline();
   }
@@ -409,7 +414,8 @@ void process_buttons(){
   int tmp0, tmp1;
   tmp0 = digitalRead(yellow_button_pin);
   tmp1 = digitalRead(black_button_pin);
-  boolean yellow_pressed = false, black_pressed = false;
+  boolean yellow_pressed = false, black_pressed = false, yellow_long_pressed = false;
+  unsigned long ts = millis();
   while (tmp0 == LOW || tmp1 == LOW){
     if (tmp0 == LOW){
       yellow_pressed = true;
@@ -420,6 +426,13 @@ void process_buttons(){
     delay(10);
     tmp0 = digitalRead(yellow_button_pin);
     tmp1 = digitalRead(black_button_pin);
+    //detect long press on yellow
+    if (yellow_pressed && !black_pressed && (millis() - ts > 2000)){
+      yellow_pressed = false;
+      black_pressed = false;
+      yellow_long_pressed = true;
+      break;
+    }
   }
   
   if (yellow_pressed && black_pressed){
@@ -434,6 +447,14 @@ void process_buttons(){
     }
   }else if (black_pressed){
     Wifly::write("back\n");
+  }else if (yellow_long_pressed){
+    Wifly::write("select_long\n");
+    //wait for button to be released
+    lcd.clear();
+    while (tmp0 == LOW){
+      delay(100);
+      tmp0 = digitalRead(yellow_button_pin);
+    }
   }
 }
 
