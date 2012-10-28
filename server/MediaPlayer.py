@@ -30,7 +30,6 @@ class MediaPlayer(threading.Thread):
 	def updateAddr(self, newAddr, follow=[]):
 		self.worker.addrQ.put_nowait(newAddr)
 		self.worker.follow = follow
-		print newAddr, ">>>>>>>>>>>>>><", follow
 
 	def terminate(self):
 		self.shouldRun = False
@@ -72,7 +71,6 @@ class StreamWorker(threading.Thread):
 
 	def bus_msg_handler(self, bus, msg):
 		if msg.type == gst.MESSAGE_EOS and len(self.follow) > 0:
-			print "playing next track in list"
 			if len(self.follow) == 0:
 				#state does not update by itself
 				self.gst_player.set_state(gst.STATE_NULL)
@@ -115,7 +113,6 @@ class StreamWorker(threading.Thread):
 					self.gst_player.set_state(gst.STATE_PLAYING)
 					self.timestamp = time.time()
 					start_track_timestamp = time.time()
-					print "started new track"
 				else:
 					self.gst_player.set_state(gst.STATE_NULL)
 			elif not self.cmdQ.empty():
@@ -124,21 +121,13 @@ class StreamWorker(threading.Thread):
 				cmd = a[0]
 				if len(a) > 1:
 					data = a[1]
-				else:
-					data = "prout"
-				print "SH cmd ", cmd
-				print data
 				if cmd == "PAUSE":
 					self.gst_player.set_state(gst.STATE_PAUSED)
-					print "pause player"
 				elif cmd == "RESUME":
 					self.gst_player.set_state(gst.STATE_PLAYING)
-					print "resume player"
 				elif cmd == "SEEK":
 					pos = self.gst_player.query_position(gst.FORMAT_TIME, None)[0]
-					print "current ", pos
 					duration = self.gst_player.query_duration(gst.FORMAT_TIME, None)[0]
-					print "duration ", duration
 					pos += int(data)*gst.SECOND
 					if pos > duration:
 						pos = duration
@@ -149,7 +138,6 @@ class StreamWorker(threading.Thread):
 					time.sleep(0.1)
 			else:
 				time.sleep(0.1)
-				#print self.gst_player.get_state()
 		self.gst_player.set_state(gst.STATE_NULL)
 		#exit gobject main loop
 		loop.quit()

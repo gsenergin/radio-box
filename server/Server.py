@@ -46,8 +46,12 @@ import time, socket
 import fileinput, string, os
 
 #log
-import sys
-#sys.stdout = open(LOG_PATH, 'a', 0)
+import sys, shutil, datetime
+if os.path.getsize(LOG_PATH) > LOG_MAX_SIZE_BYTE:
+	shutil.copyfile(LOG_PATH, LOG_PATH+".old")
+	os.remove(LOG_PATH)
+sys.stdout = open(LOG_PATH, 'a', 0)
+print " == " + str(datetime.datetime.now()) + " =="
 
 
 from RadioBoxConstant import *
@@ -128,8 +132,9 @@ class RadioBoxServer:
 	@param conn the active connection
 	@return 1 if success, 0 else'''
 	def execute_command(self, cmd, conn):
-		print "execute : ", cmd
+		#print "execute : ", cmd
 		l = string.split(cmd, ":", 1)
+		#print l
 		reply = []
 		if l[0] == "radio" :
 			self.mode = "radio"
@@ -169,7 +174,8 @@ class RadioBoxServer:
 				self.file_browser.next()
 				reply.extend(self.file_browser.getListWindow())
 				reply.extend(self.scroll_position_to_cmd(self.file_browser.getPos(), self.file_browser.getTotal()))
-				self.playing_now = False
+				if len(l) == 1:
+					self.playing_now = False
 			elif self.mode == "radio.pause" or self.mode == "radio.resume":
 				reply.extend("l:0:                  \x04\n")
 				self.radioPlayer.seek(50)
@@ -215,7 +221,6 @@ class RadioBoxServer:
 				self.radioPlayer.seek(-50)
 				self.mode = "radio.pause"
 		elif l[0] == "podcast":
-			#self.mediaPlayer.updateAddr("")
 			self.mode = "podcast"
 			self.current_episode = 0
 			self.stop_radio()
@@ -229,7 +234,6 @@ class RadioBoxServer:
 				reply.extend(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode].to_cmd())
 				reply.extend(self.scroll_position_to_cmd(self.current_episode, len(self.podcast_manager.channels[self.current_channel].episodes)))
 			elif self.mode == "podcast.episode":
-				#self.mediaPlayer.play_episode(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode])
 				self.mediaPlayer.updateAddr(self.podcast_manager.channels[self.current_channel].episodes[self.current_episode].url)
 				self.mode = "podcast.episode.playing"
 			elif self.mode == "podcast.episode.playing":
@@ -243,7 +247,7 @@ class RadioBoxServer:
 					p = self.file_browser.get_item_path_at(l[1])
 				except:
 					return 0
-				print p
+				#print p
 				if os.path.isfile(p):
 					follow = self.file_browser.get_following_item_paths_of(l[1])
 					self.mediaPlayer.updateAddr(p, follow)
@@ -253,7 +257,7 @@ class RadioBoxServer:
 					self.playing_now_ind = int(l[1]) + self.file_browser.getPos()
 					self.playing_now_ind_stack = list(self.file_browser.ind_stack)
 					self.playing_now_folder = self.file_browser.current_dir
-					print self.playing_now_folder
+					#print self.playing_now_folder
 					self.playing_now = True
 				else:
 					self.file_browser.cd(p)
@@ -310,16 +314,16 @@ class RadioBoxServer:
 		elif l[0] == "select_long":
 			if self.playing_now_folder != "":
 				self.playing_now = True
-				print "!!!!!!!!!!!!!!!!!"
-				print self.playing_now_list
-				print self.playing_now_ind
+				#print "!!!!!!!!!!!!!!!!!"
+				#print self.playing_now_list
+				#print self.playing_now_ind
 				self.file_browser.l = self.playing_now_list
 				div = int(self.playing_now_ind)/4*4
 				rest = int(self.playing_now_ind) % 4
 				self.file_browser.ind_stack = list(self.playing_now_ind_stack)
 				self.file_browser.ind = self.playing_now_ind - (self.playing_now_ind % 4)
 				self.file_browser.current_dir = self.playing_now_folder
-				print self.file_browser.current_dir
+				#print self.file_browser.current_dir
 				reply.extend(self.file_browser.getListWindow(l=self.playing_now_list, index=div))
 				reply.extend(self.scroll_position_to_cmd(self.playing_now_ind, len(self.playing_now_list)))
 				msg = []
@@ -335,7 +339,7 @@ class RadioBoxServer:
 		if len(reply) != 0:
 			#remove french char
 			reply = replace_non_ascii("".join(reply))
-			print reply
+			#print reply
 			try:
 				conn.send(reply)
 			except:
@@ -439,6 +443,12 @@ class RadioBoxServer:
 			self.radioPlayer.stop()
 			self.podcast_manager.stop()
 			self.mediaPlayer.terminate()
+			#re-open log file is max reached
+			if os.path.getsize(LOG_PATH) > LOG_MAX_SIZE_BYTE:
+				sys.stdout.close()
+				shutil.copyfile(LOG_PATH, LOG_PATH+".old")
+				os.remove(LOG_PATH)
+				sys.stdout = open(LOG_PATH, 'a', 0)
 		s.close()
 
 

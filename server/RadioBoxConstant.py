@@ -11,8 +11,10 @@ RADIO_STATION_LIST = HOME_DIR + "/live_radio.list"
 XSLT_PARSE = HOME_DIR + "/parse_title.xsl"
 EPISODE_CACHE_FILE_NAME = "episode.list"
 MAX_EPISODE_PER_CHANNEL = 50 #deprecated
-LOG_PATH = HOME_DIR + "/log.txt"
 BROWSER_HOME_DIR = "/home/bastien/Music/"
+
+LOG_PATH = HOME_DIR + "/log.txt"
+LOG_MAX_SIZE_BYTE = 5000000
 
 PLAYER_INACTIVE_TIMEOUT = 10.0
 

@@ -11,8 +11,8 @@ MIN_TIME_BEFORE_UPDATE = 1800
 
 class PodcastManager(threading.Thread):
 	#debug - this disable podcats update from net for the first 30 min of use
-	#last_update = 0
-	last_update = time.time()
+	last_update = 0
+	#last_update = time.time()
 
 	def __init__(self):
 		threading.Thread.__init__(self)

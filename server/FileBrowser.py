@@ -59,7 +59,7 @@ class FileBrowser:
 			index = self.ind
 		if l == None:
 			l = self.l
-		print "window", index, "/", len(l)
+		#print "window", index, "/", len(l)
 		for i in range(index, index + 4):
 			if i >= len(l):
 				#add an empty line
