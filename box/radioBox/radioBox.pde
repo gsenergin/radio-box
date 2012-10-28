@@ -187,7 +187,7 @@ int receive_messages(){
       //ask for next window if necessary (it's like turning rotary enc)
       if (select_ind > 3){
         select_ind = 0;
-        Wifly::write("n\n");
+        Wifly::write("n:playing-now\n");
       }
     }
     msg = Wifly::readline();
@@ -427,7 +427,7 @@ void process_buttons(){
     tmp0 = digitalRead(yellow_button_pin);
     tmp1 = digitalRead(black_button_pin);
     //detect long press on yellow
-    if (yellow_pressed && !black_pressed && (millis() - ts > 2000)){
+    if (yellow_pressed && !black_pressed && (millis() - ts > 1500)){
       yellow_pressed = false;
       black_pressed = false;
       yellow_long_pressed = true;
